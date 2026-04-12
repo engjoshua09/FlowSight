@@ -1,78 +1,108 @@
-FlowSight
-Options Flow Analytics and Strategy Platform
-FlowSight surfaces statistically anomalous options activity and computes real-time Greeks using the Black-Scholes model. Built for retail investors who want institutional-grade options flow analysis without a Bloomberg Terminal.
+# ⚡ FlowSight
 
-⚠️ Disclaimer: Unusual options activity reflects elevated trading volume, not confirmed directional intent. Signals may represent hedging, spread construction, or position rolling — not directional bets. Always cross-reference with price action and fundamentals before trading.
+**Options Flow Analytics Platform** — surfaces unusual options activity and computes real-time Greeks to help retail investors understand institutional positioning.
 
+> ⚠️ FlowSight is a decision-support tool, not a prediction engine. Unusual options activity may reflect hedging, rolling, or spread construction rather than directional conviction. Always cross-reference with price action and fundamentals before placing any trade.
 
-Features
+---
 
-Real-time options chain data via Tradier API
-Black-Scholes Greeks (Delta, Gamma, Theta, Vega) computed for every contract
-Sortable table with TanStack Table — click any column header to sort
-Live stock prices via yfinance
+## 🔴 Live Demo
 
+| Service | URL |
+|---|---|
+| Frontend | https://flowsight.vercel.app *(update after deploy)* |
+| Backend API | https://flowsight-api.onrender.com *(update after deploy)* |
+| API Docs | https://flowsight-api.onrender.com/docs |
 
-Quick Start
-Prerequisites
+---
 
-Python 3.10+
-Node.js 18+
-Tradier sandbox API key (get one free)
+## ✨ Features
 
-Backend Setup
-bashcd backend
+- 🔍 Search any ticker and fetch its live options chain via Tradier API
+- 🧮 Real-time Greeks via Black-Scholes — Δ Delta, Γ Gamma, Θ Theta, V Vega
+- 📊 Sortable options table built with TanStack Table
+- 🟢 Calls and puts colour-coded for quick scanning
+- ⚡ FastAPI backend with automatic OpenAPI docs at `/docs`
 
-# Create virtual environment
+---
+
+## 🚀 Local Setup
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- Free [Tradier sandbox account](https://developer.tradier.com)
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/engjoshua09/FlowSight.git
+cd FlowSight
+```
+
+### 2. Backend
+
+```bash
+cd backend
 python -m venv venv
 
-# Activate it
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
+# Mac/Linux
 source venv/bin/activate
+# Windows
+venv\Scripts\activate
 
-# Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
 cp .env.example .env
-# Edit .env and add your Tradier sandbox token
+# Open .env and add your Tradier sandbox token
 
-# Run the server
 uvicorn main:app --reload
-Backend runs at http://localhost:8000
-Frontend Setup
-bashcd frontend
+# Runs at http://localhost:8000
+# API docs at http://localhost:8000/docs
+```
 
-# Install dependencies
+### 3. Frontend
+
+```bash
+# Open a second terminal
+cd frontend
 npm install
-
-# Run dev server
 npm run dev
-Frontend runs at http://localhost:5173
-Usage
+# Runs at http://localhost:5173
+```
 
-Open http://localhost:5173 in your browser
-Enter a ticker symbol (e.g., AAPL, TSLA, SPY)
-Click Search or press Enter
-View the options chain with computed Greeks
-Click column headers to sort
+> 💡 Both terminals must be running simultaneously.
 
+---
 
-Tech Stack
-LayerTechnologyPurposeFrontendReact, TanStack Table, ViteUI and sortable data tableBackendFastAPI, PythonAPI and business logicDataTradier API, yfinanceOptions chains and stock pricesMathNumPy, SciPyBlack-Scholes Greeks computation
+## 📖 Usage
 
-API Endpoints
-MethodEndpointDescriptionGET/Health checkGET/options/{ticker}Returns options chain with computed Greeks
-Example Response
-json{
+1. Open **http://localhost:5173**
+2. Enter a ticker symbol (e.g. `AAPL`, `TSLA`, `SPY`)
+3. Click **Search** or press **Enter**
+4. View the options chain with computed Greeks
+5. Click any column header to sort
+
+---
+
+## 🔌 API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | Health check |
+| GET | `/options/{ticker}` | Returns options chain with Greeks |
+
+**Example response:**
+
+```json
+{
   "ticker": "AAPL",
   "contracts": [
     {
       "strike": 180,
       "type": "call",
-      "expiration": "2025-05-16",
+      "expiration": "2026-05-16",
       "bid": 5.20,
       "ask": 5.35,
       "volume": 1234,
@@ -85,26 +115,61 @@ json{
     }
   ]
 }
+```
 
-Project Structure
+---
+
+## 📁 Project Structure
 FlowSight/
 ├── backend/
-│   ├── main.py           # FastAPI app and /options endpoint
-│   ├── greeks.py         # Black-Scholes implementation
-│   ├── tradier.py        # Tradier API client
-│   ├── requirements.txt  # Python dependencies
-│   └── .env.example      # Environment template
+│   ├── main.py          # FastAPI app and /options endpoint
+│   ├── greeks.py        # Black-Scholes Greeks engine
+│   ├── tradier.py       # Tradier API client
+│   ├── requirements.txt
+│   └── .env.example
 ├── frontend/
-│   ├── src/
-│   │   ├── App.jsx           # Main component
-│   │   └── OptionsTable.jsx  # Sortable table component
-│   ├── package.json
-│   └── vite.config.js
+│   └── src/
+│       ├── App.jsx          # Main app component
+│       └── OptionsTable.jsx # Sortable Greeks table
 └── README.md
 
-Team
-Net Positive — NUS Orbital 2026 (Artemis)
+---
 
-Joshua Eng — Frontend, Deployment, UI/UX
-Nathaniel Goh — Backend, Greeks Engine, Data Pipeline
+## 🗺️ Roadmap
 
+| Milestone | Date | Features |
+|---|---|---|
+| ✅ Artemis PoC | May 14 | Live Greeks + sortable table |
+| Milestone 1 | Jun 1 | Redis caching, UOA scoring, CI/CD |
+| Milestone 2 | Jun 29 | Full dashboard, signal disclaimers, user testing |
+| Milestone 3 | Jul 27 | Strategy optimizer, P&L visualiser |
+| Splashdown | Aug 26 | Polish, poster, demo video |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | React, Vite, TanStack Table | UI and sortable data table |
+| Backend | FastAPI, Python | API and business logic |
+| Data | Tradier API, yfinance | Options chains and stock prices |
+| Math | NumPy, SciPy | Black-Scholes Greeks computation |
+| Deployment | Vercel, Render | Hosting |
+
+---
+
+## 👥 Team
+
+**Net Positive — NUS Orbital 2026 (Artemis)**
+
+| Name | Role |
+|---|---|
+| Joshua Eng | Frontend, Deployment, UI/UX |
+| Nathaniel Goh | Backend, Greeks Engine, Data Pipeline |
+
+---
+
+## ⚠️ Disclaimer
+
+FlowSight is built for educational purposes as part of NUS Orbital 2026. It is not financial advice. Options trading involves significant risk of loss.
