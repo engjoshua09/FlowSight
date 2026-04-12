@@ -41,10 +41,13 @@ def options_chain(ticker: str):
         raise HTTPException(status_code=404, detail=f"No options data found for {ticker}")
 
     results = []
+    S = get_stock_price(ticker)
     for c in raw_contracts:
         strike = c.get("strike")
         option_type = c.get("option_type")  # "call" or "put"
-        iv = c.get("greeks", {}).get("mid_iv") or c.get("ask")  # fallback
+        iv = c.get("greeks", {}).get("mid_iv") or c.get("iv") or c.get("ask")
+        if not iv or iv <= 0 or iv > 5:  # IV shouldn't be > 500%
+            continue
         last_price = c.get("last") or 0
         expiration = c.get("expiration_date", "")
 
@@ -55,10 +58,6 @@ def options_chain(ticker: str):
         # Approximate stock price from mid of bid/ask (good enough for PoC)
         bid = c.get("bid") or 0
         ask = c.get("ask") or 0
-
-        # We need the underlying price — use a rough proxy for now
-        # (In M1 you'll fetch this properly from yfinance)
-        S = get_stock_price(ticker)
 
         import datetime
         try:
