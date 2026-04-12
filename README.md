@@ -118,8 +118,9 @@ npm run dev
 ```
 
 ---
-
 ## 📁 Project Structure
+
+```
 FlowSight/
 ├── backend/
 │   ├── main.py          # FastAPI app and /options endpoint
@@ -132,7 +133,7 @@ FlowSight/
 │       ├── App.jsx          # Main app component
 │       └── OptionsTable.jsx # Sortable Greeks table
 └── README.md
-
+```
 ---
 
 ## 🗺️ Roadmap
