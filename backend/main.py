@@ -3,6 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from tradier import get_options_chain
 from greeks import compute_greeks
 import requests as req
+import yfinance as yf
+
+def get_stock_price(ticker: str) -> float:
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period="1d")
+    return float(hist["Close"].iloc[-1])
 
 app = FastAPI()
 
@@ -52,7 +58,7 @@ def options_chain(ticker: str):
 
         # We need the underlying price — use a rough proxy for now
         # (In M1 you'll fetch this properly from yfinance)
-        S = strike * 1.0  # placeholder; replace with real price fetch
+        S = get_stock_price(ticker)
 
         import datetime
         try:
