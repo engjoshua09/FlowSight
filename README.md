@@ -108,6 +108,3 @@ Net Positive — NUS Orbital 2026 (Artemis)
 Joshua Eng — Frontend, Deployment, UI/UX
 Nathaniel Goh — Backend, Greeks Engine, Data Pipeline
 
-
-License
-MIT
