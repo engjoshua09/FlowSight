@@ -162,7 +162,7 @@ FlowSight/
 
 ## 👥 Team
 
-**Net Positive — NUS Orbital 2026 (Artemis)**
+**Net Positive — NUS Orbital 2026 (Apollo 11)**
 
 | Name | Role |
 |---|---|
