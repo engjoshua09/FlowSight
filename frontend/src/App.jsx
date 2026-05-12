@@ -66,15 +66,19 @@ export default function App() {
       </div>
 
       {loading && <p style={{ color: "#888" }}>Loading options chain...</p>}
-      {error && <p style={{ color: "#ff4444" }}>⚠ {error}</p>}
-      {!loading && !error && contracts.length > 0 && (
-        <>
+      {error && (
+        <p style={{ color: "#ff4444" }}>
+          ⚠ {error} — is the backend running at localhost:8000?
+          </p>
+        )}      
+        {!loading && !error && contracts.length > 0 && (
+          <>
           <p style={{ color: "#888", marginBottom: "0.5rem" }}>
             {contracts.length} contracts found — click column headers to sort
           </p>
           <OptionsTable contracts={contracts} />
-        </>
-      )}
+          </>
+        )}
     </div>
   );
 }
