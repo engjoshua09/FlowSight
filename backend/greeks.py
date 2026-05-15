@@ -1,10 +1,11 @@
 import numpy as np
 from scipy.stats import norm
 
-def compute_greeks(S, K, T, r, sigma, option_type="call"):
-    # Clamp to avoid division by zero
-    T = max(T, 0.001)
-    sigma = max(sigma, 0.001)
+def compute_greeks(S, K, T, r, sigma, option_type="call"): # option_type automatically becomes "call" if no input
+    MIN_T = 1e-4      # prevents division by zero at expiry
+    MIN_SIGMA = 1e-4  # prevents division by zero at near-zero volatility
+    T = max(T, MIN_T)
+    sigma = max(sigma, MIN_SIGMA)
 
     d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
@@ -21,8 +22,8 @@ def compute_greeks(S, K, T, r, sigma, option_type="call"):
         - r * K * np.exp(-r * T) * norm.cdf(d2)
     )
     theta_put = theta_call + r * K * np.exp(-r * T)
-    theta = theta_call if option_type == "call" else theta_put
-    theta = theta / 365
+    theta_year = theta_call if option_type == "call" else theta_put
+    theta = theta_year / 365
 
     vega = S * norm.pdf(d1) * np.sqrt(T) / 100
 
