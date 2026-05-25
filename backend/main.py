@@ -1,114 +1,164 @@
+"""
+FlowSight — FastAPI backend
+backend/main.py
+"""
+
+import asyncio
 import datetime
+import logging
+import os
+from contextlib import asynccontextmanager
+
+import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from tradier import get_options_chain
+
+from cache import (
+    _redis,
+    cache_delete,
+    cache_get,
+    cache_set,
+    close_cache,
+    init_cache,
+    options_chain_key,
+)
 from greeks import compute_greeks
-from uoa import score_contracts, compute_call_put_ratio
-import yfinance as yf
+from tradier import get_options_chain
+from uoa import compute_call_put_ratio, score_contracts
 
-def get_stock_price(ticker: str) -> float:
-    stock = yf.Ticker(ticker)
-    hist = stock.history(period="1d")
-    return float(hist["Close"].iloc[-1])
+logger = logging.getLogger(__name__)
 
-app = FastAPI()
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+RISK_FREE_RATE = float(os.getenv("RISK_FREE_RATE", "0.053"))  # ~5.3% — update as needed
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def get_spot_price(ticker: str) -> float:
+    """Fetch latest price via yfinance (sync — called via asyncio.to_thread)."""
+    try:
+        return float(yf.Ticker(ticker).fast_info["last_price"])
+    except Exception as exc:
+        logger.warning("yfinance failed for %s: %s", ticker, exc)
+        return 0.0
+
+
+def dte_to_years(expiration_date: str) -> float:
+    """Convert expiration date string to years-to-expiry for Black-Scholes."""
+    try:
+        exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
+        days = max((exp - datetime.datetime.today()).days, 0)
+        return max(days / 365, 1e-4)  # clamp to avoid division by zero at expiry
+    except Exception:
+        return 1e-4
+
+
+def enrich_with_greeks(contracts: list, spot: float) -> list:
+    """Add delta/gamma/theta/vega to each raw Tradier contract dict."""
+    enriched = []
+    for c in contracts:
+        strike = c.get("strike", 0)
+        sigma = c.get("implied_volatility") or 0.3  # fallback IV if Tradier returns null
+        option_type = c.get("option_type", "call")
+        T = dte_to_years(c.get("expiration_date", ""))
+
+        greeks = {}
+        if spot > 0 and strike > 0:
+            greeks = compute_greeks(spot, strike, T, RISK_FREE_RATE, sigma, option_type)
+
+        enriched.append({**c, **greeks})
+    return enriched
+
+
+# ─── Lifespan ─────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_cache()   # connect Redis on startup
+    yield
+    await close_cache()  # clean disconnect on shutdown
+
+
+# ─── App ──────────────────────────────────────────────────────────────────────
+
+app = FastAPI(title="FlowSight API", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=[FRONTEND_URL],
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 
-RISK_FREE_RATE = 0.05
 
-@app.get("/")
-def root():
-    return {"status": "FlowSight backend is running"}
+# ─── Routes ───────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+async def health():
+    redis_ok = False
+    if _redis:
+        try:
+            await _redis.ping()
+            redis_ok = True
+        except Exception:
+            pass
+    return {"status": "ok", "redis": redis_ok}
+
 
 @app.get("/options/{ticker}")
-def options_chain(ticker: str):
-    ticker = ticker.upper().strip()
-    if not ticker.isalpha():
-        raise HTTPException(status_code=400, detail="Invalid ticker symbol")
+async def get_options(ticker: str):
+    """
+    Returns Greeks + UOA scores for all contracts on the nearest expiry.
 
-    try:
-        raw_contracts = get_options_chain(ticker)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Tradier API error: {str(e)}")
+    Cache flow:
+      1. Check Redis for raw Tradier response + spot price.
+      2. Miss → fetch from Tradier + yfinance, cache the raw data (5 min TTL).
+      3. Always compute Greeks + UOA fresh (fast, no API cost).
+    """
+    ticker = ticker.upper()
+    raw_key = options_chain_key(ticker)
 
-    if not raw_contracts:
-        raise HTTPException(status_code=404, detail=f"No options data found for {ticker}")
+    # 1. Cache check
+    cached = await cache_get(raw_key)
+    cache_hit = cached is not None
 
-    try:
-        S = get_stock_price(ticker)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not fetch stock price: {str(e)}")
-
-    results = []
-    for c in raw_contracts:
-        strike = c.get("strike")
-        option_type = c.get("option_type")
-        iv = c.get("greeks", {}).get("mid_iv") or c.get("iv") or c.get("ask")
-
-        if not strike or not option_type:
-            continue
-        if not iv or iv <= 0 or iv > 5:
-            continue
-
-        bid = c.get("bid") or 0
-        ask = c.get("ask") or 0
-        expiration = c.get("expiration_date", "")
-
+    if cache_hit:
+        contracts_raw = cached["contracts"]
+        spot = cached["spot_price"]
+    else:
+        # 2. Fetch — tradier.get_options_chain is sync, run in thread pool
         try:
-            exp_date = datetime.datetime.strptime(expiration, "%Y-%m-%d")
-            T = max((exp_date - datetime.datetime.today()).days / 365, 0.001)
-        except Exception:
-            T = 0.1
+            contracts_raw = await asyncio.to_thread(get_options_chain, ticker)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Tradier error: {exc}")
 
-        greeks = compute_greeks(
-            S=S, K=strike, T=T,
-            r=RISK_FREE_RATE, sigma=iv,
-            option_type=option_type
-        )
+        spot = await asyncio.to_thread(get_spot_price, ticker)
 
-        results.append({
-            "ticker": ticker,
-            "strike": strike,
-            "type": option_type,
-            "expiration": expiration,
-            "bid": bid,
-            "ask": ask,
-            "volume": c.get("volume", 0),
-            "open_interest": c.get("open_interest", 0),
-            "iv": round(iv, 4),
-            **greeks
-        })
+        if not contracts_raw:
+            raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
 
-    return {"ticker": ticker, "contracts": results}
+        await cache_set(raw_key, {"contracts": contracts_raw, "spot_price": spot})
 
-@app.get("/uoa/{ticker}")
-def uoa_signals(ticker: str):
-    ticker = ticker.upper().strip()
-    if not ticker.isalpha():
-        raise HTTPException(status_code=400, detail="Invalid ticker symbol")
-
-    try:
-        raw_contracts = get_options_chain(ticker)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Tradier API error: {str(e)}")
-
-    if not raw_contracts:
-        raise HTTPException(status_code=404, detail=f"No options data found for {ticker}")
-
-    scored = score_contracts(raw_contracts)
-    flagged = [c for c in scored if c["is_flagged"]]
-    call_put = compute_call_put_ratio(raw_contracts)
+    # 3. Compute (always fresh)
+    enriched = enrich_with_greeks(contracts_raw, spot)
+    scored = score_contracts(enriched)
+    bias = compute_call_put_ratio(enriched)
 
     return {
         "ticker": ticker,
-        "total_contracts": len(scored),
-        "flagged_count": len(flagged),
-        "call_put_ratio": call_put,
-        "contracts": scored  # all contracts, sorted by UOA score
+        "spot_price": spot,
+        "implied_bias": bias["implied_bias"],
+        "call_put_ratio": bias["call_put_ratio"],
+        "call_volume": bias["call_volume"],
+        "put_volume": bias["put_volume"],
+        "cache_hit": cache_hit,
+        "contracts": scored,
     }
+
+
+@app.get("/options/{ticker}/refresh")
+async def refresh_options(ticker: str):
+    """Bust the cache and return a fresh fetch. Wire to the frontend Refresh button."""
+    ticker = ticker.upper()
+    await cache_delete(options_chain_key(ticker))
+    return await get_options(ticker)
