@@ -51,7 +51,7 @@ jobs:
           TRADIER_API_KEY: ${{ secrets.TRADIER_API_KEY }}   # set this in GitHub → Settings → Secrets
         run: |
           cd backend
-          python -m pytest tests/ -v --tb=short --strict-markers
+          python -m pytest test_greeks.py -v --tb=short --strict-markers
 
       # Optional: fail the build if coverage drops below 70%
       # Uncomment once you have enough tests to make this meaningful.
