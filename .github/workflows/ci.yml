@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["**"]           # run on every branch push so we catch it before PR
+    branches: ["**"]
   pull_request:
     branches: [main]
 
@@ -11,22 +11,9 @@ jobs:
     name: PyTest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
 
-    # Spin up a real Redis so any integration tests that need it work.
-    # unit tests don't need Redis because cache.py degrades gracefully.
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 5
-
     strategy:
       matrix:
-        python-version: ["3.12"]   # pin to your runtime; add "3.11" if we want a wider net
+        python-version: ["3.12"]
 
     steps:
       - name: Checkout
@@ -36,7 +23,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip                              # caches ~/.cache/pip between runs — speeds up installs
+          cache: pip
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
@@ -47,16 +34,7 @@ jobs:
 
       - name: Run tests
         env:
-          REDIS_URL: redis://localhost:6379       # points to the service container above
-          TRADIER_API_KEY: ${{ secrets.TRADIER_API_KEY }}   # set this in GitHub → Settings → Secrets
+          TRADIER_TOKEN: ${{ secrets.TRADIER_TOKEN }}
         run: |
           cd backend
-          python -m pytest test_greeks.py -v --tb=short --strict-markers
-
-      # Optional: fail the build if coverage drops below 70%
-      # Uncomment once you have enough tests to make this meaningful.
-      # - name: Coverage gate
-      #   run: |
-      #     cd backend
-      #     pip install pytest-cov
-      #     python -m pytest tests/ --cov=app --cov-fail-under=70 -q
+          python -m pytest test_greeks.py -v --tb=short
