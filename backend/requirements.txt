@@ -1,4 +1,4 @@
-fastapi
+﻿fastapi
 uvicorn
 requests
 numpy
@@ -6,4 +6,4 @@ scipy
 python-dotenv
 yfinance
 redis
-
+pytest
