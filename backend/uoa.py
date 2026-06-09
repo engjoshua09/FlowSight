@@ -11,9 +11,10 @@ def compute_dte(expiration_date: str) -> int:
     """Returns days to expiry from today."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        return max((exp - datetime.datetime.today()).days, 0)
+        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+        return max((exp - today).days, 0)
     except Exception:
-        return 999  # invalid date → don't flag
+        return 999
 
 def compute_zscore(volume: float, historical_volumes: list) -> float:
     """
