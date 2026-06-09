@@ -1,6 +1,7 @@
 import { useState } from "react";
 import OptionsTable from "./OptionsTable";
 import UOATable from "./UOATable";
+import GreeksPanel from "./GreeksPanel";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -31,8 +32,6 @@ export default function App() {
 
   const spot = data?.spot_price ?? 0;
 
-  // Sort contracts: above spot (descending) then below spot (ascending)
-  // so spot price sits in the middle visually
   function sortAroundSpot(contracts) {
     const above = contracts
       .filter(c => c.strike >= spot)
@@ -116,12 +115,12 @@ export default function App() {
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
             <Tab label={`📊 Full Chain (${allContracts.length})`} id="chain" active={activeTab} onClick={setActiveTab} />
             <Tab label={`🚨 UOA Signals (${flagged.length})`} id="uoa" active={activeTab} onClick={setActiveTab} />
+            <Tab label="⚙ Greeks Calc" id="greeks" active={activeTab} onClick={setActiveTab} />
           </div>
 
           {/* Full Chain Tab */}
           {activeTab === "chain" && (
             <>
-              {/* Filter Bar */}
               <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignItems: "center" }}>
                 <span style={{ color: "#888", fontSize: "0.85rem" }}>Filter:</span>
                 {["all", "call", "put"].map(f => (
@@ -146,7 +145,6 @@ export default function App() {
                   {sortedChain.length} contracts — centred around spot ${spot.toFixed(2)}
                 </span>
               </div>
-
               <OptionsTable contracts={sortedChain} spotPrice={spot} />
             </>
           )}
@@ -168,6 +166,11 @@ export default function App() {
                 : <UOATable contracts={flagged} />
               }
             </>
+          )}
+
+          {/* Greeks Calculator Tab */}
+          {activeTab === "greeks" && (
+            <GreeksPanel initialSpot={spot} />
           )}
         </>
       )}
