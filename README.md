@@ -55,7 +55,11 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Open .env and add your Tradier sandbox token
+# Open .env and fill in all four variables:
+# TRADIER_TOKEN  — from https://developer.tradier.com (free sandbox account)
+# REDIS_URL      — from https://console.upstash.com (free Redis instance)
+# CACHE_TTL_SECONDS — leave as 300 (5 minutes)
+# RISK_FREE_RATE — leave as 0.053 (current US Treasury rate)
 
 uvicorn main:app --reload
 # Runs at http://localhost:8000
