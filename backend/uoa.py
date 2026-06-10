@@ -83,21 +83,20 @@ def compute_call_put_ratio(contracts: list) -> dict:
     }
 
 def score_contracts(contracts: list) -> list:
-    """ Takes raw contracts from Tradier, scores each one, and returns flagged contracts sorted by UOA score. """
-    # In production, historical_volumes will come from a real 30-day data store. For now we simulate it so the engine works end-to-end.
+    """
+    Takes enriched contracts (with Greeks already computed),
+    scores each one by UOA, and returns all contracts sorted by UOA score.
+    """
     scored = []
 
     for c in contracts:
         volume = c.get("volume") or 0
         open_interest = c.get("open_interest") or 0
         expiration = c.get("expiration_date", "")
-        option_type = c.get("option_type", "")
         strike = c.get("strike")
+        option_type = c.get("option_type", "")
 
         dte = compute_dte(expiration)
-
-        # Simulate 30-day historical volumes for now
-        # Replace this with real historical data in M1
         simulated_history = simulate_historical_volumes(volume)
 
         uoa_score = compute_uoa_score(volume, open_interest, simulated_history)
@@ -111,25 +110,21 @@ def score_contracts(contracts: list) -> list:
         )
 
         scored.append({
-            "strike": strike,
-            "type": option_type,
+            **c,                    # keeps ALL fields from enrich_with_greeks
+            "type": option_type,    # normalise option_type -> type for frontend
             "expiration": expiration,
             "dte": dte,
-            "volume": volume,
-            "open_interest": open_interest,
             "volume_oi_ratio": round(vol_oi_ratio, 4),
             "volume_zscore": round(zscore, 4),
             "uoa_score": uoa_score,
             "is_flagged": is_flagged,
             "disclaimer": (
-                "⚠ Elevated activity detected. May reflect directional "
-                "positioning, hedging, or spread construction. "
+                "⚠ Elevated activity detected. May reflect directional positioning, hedging, or spread construction. "
                 "Not a directional prediction."
                 if is_flagged else None
             )
         })
 
-    # Sort by UOA score descending — highest signal first
     scored.sort(key=lambda x: x["uoa_score"], reverse=True)
     return scored
 
