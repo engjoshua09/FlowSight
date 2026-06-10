@@ -47,8 +47,10 @@ def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        days = max((exp - datetime.datetime.today()).days, 0)
-        return max(days / 365, 1e-4)  # clamp to avoid division by zero at expiry
+        # Use date difference to avoid time-of-day truncation
+        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+        days = max((exp - today).days, 0)
+        return max(days / 365, 1e-4)
     except Exception:
         return 1e-4
 
