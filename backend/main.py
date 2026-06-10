@@ -88,15 +88,39 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
     enriched = []
     for c in contracts:
         strike = c.get("strike", 0)
-        sigma = c.get("implied_volatility") or 0.3  # fallback IV if Tradier returns null
         option_type = c.get("option_type", "call")
         T = dte_to_years(c.get("expiration_date", ""))
 
+        # Try all possible IV field names Tradier uses
+        sigma = (
+            c.get("greeks", {}).get("mid_iv")
+            or c.get("smv_vol")
+            or c.get("implied_volatility")
+            or 0.3  # fallback 30% IV
+        )
+
+        # Ensure sigma is valid
+        try:
+            sigma = float(sigma)
+            if sigma <= 0 or sigma > 5:
+                sigma = 0.3
+        except (TypeError, ValueError):
+            sigma = 0.3
+
         greeks = {}
         if spot > 0 and strike > 0:
-            greeks = compute_greeks(spot, strike, T, RISK_FREE_RATE, sigma, option_type)
+            greeks = compute_greeks(
+                spot, strike, T, RISK_FREE_RATE, sigma, option_type
+            )
 
-        enriched.append({**c, **greeks})
+        # Normalise field names for frontend
+        enriched.append({
+            **c,
+            "iv": round(sigma, 4),          # consistent IV field for frontend
+            "bid": c.get("bid") or 0,
+            "ask": c.get("ask") or 0,
+            **greeks
+        })
     return enriched
 
 
