@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from cache import (
     _redis,
@@ -28,7 +29,6 @@ from uoa import compute_call_put_ratio, score_contracts
 
 logger = logging.getLogger(__name__)
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 RISK_FREE_RATE = float(os.getenv("RISK_FREE_RATE", "0.053"))  # ~5.3% — update as needed
 
 
@@ -47,8 +47,9 @@ def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        # Use date difference to avoid time-of-day truncation
-        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = datetime.datetime.today().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         days = max((exp - today).days, 0)
         return max(days / 365, 1e-4)
     except Exception:
@@ -87,7 +88,7 @@ app = FastAPI(title="FlowSight API", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=["*"],        # allows Vercel frontend to call this API
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -95,8 +96,12 @@ app.add_middleware(
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
+    """
+    Health check endpoint.
+    Accepts both GET and HEAD so UptimeRobot's HEAD requests return 200.
+    """
     redis_ok = False
     if _redis:
         try:
@@ -104,7 +109,7 @@ async def health():
             redis_ok = True
         except Exception:
             pass
-    return {"status": "ok", "redis": redis_ok}
+    return JSONResponse({"status": "ok", "redis": redis_ok})
 
 
 @app.get("/options/{ticker}")
@@ -137,11 +142,13 @@ async def get_options(ticker: str):
         spot = await asyncio.to_thread(get_spot_price, ticker)
 
         if not contracts_raw:
-            raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
+            raise HTTPException(
+                status_code=404, detail=f"No options found for {ticker}"
+            )
 
         await cache_set(raw_key, {"contracts": contracts_raw, "spot_price": spot})
 
-    # 3. Compute (always fresh)
+    # 3. Compute always fresh
     enriched = enrich_with_greeks(contracts_raw, spot)
     scored = score_contracts(enriched)
     bias = compute_call_put_ratio(enriched)
@@ -160,7 +167,7 @@ async def get_options(ticker: str):
 
 @app.get("/options/{ticker}/refresh")
 async def refresh_options(ticker: str):
-    """Bust the cache and return a fresh fetch. Wire to the frontend Refresh button."""
+    """Bust the cache and return a fresh fetch."""
     ticker = ticker.upper()
     await cache_delete(options_chain_key(ticker))
     return await get_options(ticker)
