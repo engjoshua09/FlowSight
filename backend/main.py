@@ -35,7 +35,34 @@ RISK_FREE_RATE = float(os.getenv("RISK_FREE_RATE", "0.053"))  # ~5.3% — update
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def get_spot_price(ticker: str) -> float:
-    """Fetch latest price via yfinance (sync — called via asyncio.to_thread)."""
+    """
+    Fetch latest price — tries Tradier first, falls back to yfinance.
+    Since Tradier is more reliable on Render's network.
+    """
+    import requests
+    import os
+
+    token = os.getenv("TRADIER_TOKEN")
+    if token:
+        try:
+            resp = requests.get(
+                "https://sandbox.tradier.com/v1/markets/quotes",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json"
+                },
+                params={"symbols": ticker},
+                timeout=5
+            )
+            resp.raise_for_status()
+            quote = resp.json().get("quotes", {}).get("quote", {})
+            price = quote.get("last") or quote.get("bid") or 0.0
+            if price and float(price) > 0:
+                return float(price)
+        except Exception as exc:
+            logger.warning("Tradier quote failed for %s: %s", ticker, exc)
+
+    # Fallback to yfinance
     try:
         return float(yf.Ticker(ticker).fast_info["last_price"])
     except Exception as exc:
