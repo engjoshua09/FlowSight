@@ -10,9 +10,9 @@
 
 | Service | URL |
 |---|---|
-| Frontend | https://flowsight.vercel.app *(update after deploy)* |
-| Backend API | https://flowsight-api.onrender.com *(update after deploy)* |
-| API Docs | https://flowsight-api.onrender.com/docs |
+| Frontend | https://flowsight-two.vercel.app |
+| Backend API | https://flowsight-api-r6e9.onrender.com |
+| API Docs | https://flowsight-api-r6e9.onrender.com/docs |
 
 ---
 
