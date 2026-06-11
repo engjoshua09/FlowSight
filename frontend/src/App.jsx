@@ -5,6 +5,13 @@ import GreeksPanel from "./GreeksPanel";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+const VOLUME_FILTERS = [
+  { label: "All", value: 0 },
+  { label: "Vol > 100", value: 100 },
+  { label: "Vol > 500", value: 500 },
+  { label: "Vol > 1000", value: 1000 },
+];
+
 export default function App() {
   const [ticker, setTicker] = useState("");
   const [data, setData] = useState(null);
@@ -12,14 +19,15 @@ export default function App() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("chain");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [minVolume, setMinVolume] = useState(0);
 
-  async function fetchOptions() {
+  async function fetchOptions(url) {
     if (!ticker) return;
     setLoading(true);
     setError(null);
     setData(null);
     try {
-      const res = await fetch(`${API_URL}/options/${ticker}`);
+      const res = await fetch(url || `${API_URL}/options/${ticker}`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
       setData(json);
@@ -28,6 +36,11 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function refreshOptions() {
+    if (!ticker) return;
+    fetchOptions(`${API_URL}/options/${ticker}/refresh`);
   }
 
   const spot = data?.spot_price ?? 0;
@@ -44,9 +57,11 @@ export default function App() {
 
   const allContracts = data?.contracts ?? [];
 
-  const filtered = allContracts.filter(c =>
-    typeFilter === "all" ? true : c.type === typeFilter
-  );
+  const filtered = allContracts.filter(c => {
+    const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
+    const volMatch = (c.volume || 0) >= minVolume;
+    return typeMatch && volMatch;
+  });
 
   const sortedChain = sortAroundSpot(filtered);
   const flagged = allContracts.filter(c => c.is_flagged);
@@ -61,14 +76,13 @@ export default function App() {
       background: "#0f0f0f", minHeight: "100vh", color: "#fff"
     }}>
 
-      {/* Header */}
       <h1 style={{ color: "#00d4aa", marginBottom: "0.25rem" }}>⚡ FlowSight</h1>
       <p style={{ color: "#888", marginTop: 0, marginBottom: "1.5rem" }}>
         Options Flow Analytics Platform
       </p>
 
       {/* Search */}
-      <div style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem" }}>
+      <div style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
         <input
           value={ticker}
           onChange={(e) => setTicker(e.target.value.toUpperCase())}
@@ -80,7 +94,7 @@ export default function App() {
             color: "#fff", borderRadius: "6px", width: "220px"
           }}
         />
-        <button onClick={fetchOptions} style={{
+        <button onClick={() => fetchOptions()} style={{
           padding: "0.6rem 1.2rem", fontSize: "1rem",
           background: "#00d4aa", color: "#000",
           border: "none", borderRadius: "6px",
@@ -88,6 +102,16 @@ export default function App() {
         }}>
           Search
         </button>
+        {data && (
+          <button onClick={refreshOptions} style={{
+            padding: "0.6rem 1rem", fontSize: "0.9rem",
+            background: "#1a1a1a", color: "#888",
+            border: "1px solid #333", borderRadius: "6px",
+            cursor: loading ? "not-allowed" : "pointer",
+          }}>
+            {loading ? "..." : "🔄 Refresh"}
+          </button>
+        )}
       </div>
 
       {loading && <p style={{ color: "#888" }}>Loading options chain...</p>}
@@ -121,8 +145,8 @@ export default function App() {
           {/* Full Chain Tab */}
           {activeTab === "chain" && (
             <>
-              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignItems: "center" }}>
-                <span style={{ color: "#888", fontSize: "0.85rem" }}>Filter:</span>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ color: "#888", fontSize: "0.85rem" }}>Type:</span>
                 {["all", "call", "put"].map(f => (
                   <button
                     key={f}
@@ -141,6 +165,24 @@ export default function App() {
                     {f === "all" ? "All" : f === "call" ? "📈 Calls" : "📉 Puts"}
                   </button>
                 ))}
+
+                <span style={{ color: "#888", fontSize: "0.85rem", marginLeft: "0.5rem" }}>Volume:</span>
+                {VOLUME_FILTERS.map(f => (
+                  <button
+                    key={f.value}
+                    onClick={() => setMinVolume(f.value)}
+                    style={{
+                      padding: "0.3rem 0.8rem", fontSize: "0.85rem",
+                      background: minVolume === f.value ? "#a78bfa" : "#1a1a1a",
+                      color: minVolume === f.value ? "#000" : "#888",
+                      border: "1px solid #333", borderRadius: "4px",
+                      cursor: "pointer", fontWeight: minVolume === f.value ? "bold" : "normal",
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+
                 <span style={{ color: "#555", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
                   {sortedChain.length} contracts — centred around spot ${spot.toFixed(2)}
                 </span>
