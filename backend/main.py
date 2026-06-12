@@ -8,11 +8,11 @@ import datetime
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
 
 import yfinance as yf
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from cache import (
     _redis,
@@ -29,40 +29,11 @@ from uoa import compute_call_put_ratio, score_contracts
 
 logger = logging.getLogger(__name__)
 
-RISK_FREE_RATE = float(os.getenv("RISK_FREE_RATE", "0.053"))  # ~5.3% — update as needed
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+RISK_FREE_RATE = float(os.getenv("RISK_FREE_RATE", "0.053"))
 
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def get_spot_price(ticker: str) -> float:
-    """
-    Fetch latest price — tries Tradier first, falls back to yfinance.
-    Since Tradier is more reliable on Render's network.
-    """
-    import requests
-    import os
-
-    token = os.getenv("TRADIER_TOKEN")
-    if token:
-        try:
-            resp = requests.get(
-                "https://sandbox.tradier.com/v1/markets/quotes",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Accept": "application/json"
-                },
-                params={"symbols": ticker},
-                timeout=5
-            )
-            resp.raise_for_status()
-            quote = resp.json().get("quotes", {}).get("quote", {})
-            price = quote.get("last") or quote.get("bid") or 0.0
-            if price and float(price) > 0:
-                return float(price)
-        except Exception as exc:
-            logger.warning("Tradier quote failed for %s: %s", ticker, exc)
-
-    # Fallback to yfinance
     try:
         return float(yf.Ticker(ticker).fast_info["last_price"])
     except Exception as exc:
@@ -96,7 +67,7 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
             c.get("greeks", {}).get("mid_iv")
             or c.get("smv_vol")
             or c.get("implied_volatility")
-            or 0.3  # fallback 30% IV
+            or 0.3
         )
 
         # Ensure sigma is valid
@@ -113,10 +84,10 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
                 spot, strike, T, RISK_FREE_RATE, sigma, option_type
             )
 
-        # Normalise field names for frontend
+        # Normalise field names for frontend and ensure bid/ask are present
         enriched.append({
             **c,
-            "iv": round(sigma, 4),          # consistent IV field for frontend
+            "iv": round(sigma, 4),
             "bid": c.get("bid") or 0,
             "ask": c.get("ask") or 0,
             **greeks
@@ -124,35 +95,25 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
     return enriched
 
 
-# ─── Lifespan ─────────────────────────────────────────────────────────────────
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_cache()   # connect Redis on startup
+    await init_cache()
     yield
-    await close_cache()  # clean disconnect on shutdown
+    await close_cache()
 
 
-# ─── App ──────────────────────────────────────────────────────────────────────
-
-app = FastAPI(title="FlowSight API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="FlowSight API", version="0.4.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # allows Vercel frontend to call this API
+    allow_origins=["*"],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
 
 
-# ─── Routes ───────────────────────────────────────────────────────────────────
-
-@app.api_route("/health", methods=["GET", "HEAD"])
+@app.get("/health")
 async def health():
-    """
-    Health check endpoint.
-    Accepts both GET and HEAD so UptimeRobot's HEAD requests return 200.
-    """
     redis_ok = False
     if _redis:
         try:
@@ -160,53 +121,57 @@ async def health():
             redis_ok = True
         except Exception:
             pass
-    return JSONResponse({"status": "ok", "redis": redis_ok})
+    return {"status": "ok", "redis": redis_ok}
 
 
 @app.get("/options/{ticker}")
-async def get_options(ticker: str):
+async def get_options(
+    ticker: str,
+    expiration: Optional[str] = Query(default=None),
+    max_moneyness: float = Query(default=0.30, ge=0.05, le=1.0),
+):
     """
-    Returns Greeks + UOA scores for all contracts on the nearest expiry.
-
-    Cache flow:
-      1. Check Redis for raw Tradier response + spot price.
-      2. Miss → fetch from Tradier + yfinance, cache the raw data (5 min TTL).
-      3. Always compute Greeks + UOA fresh (fast, no API cost).
+    Returns Greeks + UOA scores for all contracts on the selected expiry.
+    max_moneyness controls how far OTM/ITM contracts are included (0.05 to 1.0).
+    Default is 0.30 (30% from spot).
     """
     ticker = ticker.upper()
-    raw_key = options_chain_key(ticker)
+    raw_key = options_chain_key(ticker) + (f":{expiration}" if expiration else "")
 
-    # 1. Cache check
     cached = await cache_get(raw_key)
     cache_hit = cached is not None
 
     if cache_hit:
         contracts_raw = cached["contracts"]
         spot = cached["spot_price"]
+        expirations = cached.get("expirations", [])
     else:
-        # 2. Fetch — tradier.get_options_chain is sync, run in thread pool
         try:
-            contracts_raw = await asyncio.to_thread(get_options_chain, ticker)
+            contracts_raw, expirations = await asyncio.to_thread(
+                get_options_chain, ticker, expiration
+            )
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Tradier error: {exc}")
 
         spot = await asyncio.to_thread(get_spot_price, ticker)
 
         if not contracts_raw:
-            raise HTTPException(
-                status_code=404, detail=f"No options found for {ticker}"
-            )
+            raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
 
-        await cache_set(raw_key, {"contracts": contracts_raw, "spot_price": spot})
+        await cache_set(raw_key, {
+            "contracts": contracts_raw,
+            "spot_price": spot,
+            "expirations": expirations,
+        })
 
-    # 3. Compute always fresh
     enriched = enrich_with_greeks(contracts_raw, spot)
-    scored = score_contracts(enriched)
+    scored = score_contracts(enriched, spot, max_moneyness)
     bias = compute_call_put_ratio(enriched)
 
     return {
         "ticker": ticker,
         "spot_price": spot,
+        "expirations": expirations,
         "implied_bias": bias["implied_bias"],
         "call_put_ratio": bias["call_put_ratio"],
         "call_volume": bias["call_volume"],
@@ -217,8 +182,12 @@ async def get_options(ticker: str):
 
 
 @app.get("/options/{ticker}/refresh")
-async def refresh_options(ticker: str):
-    """Bust the cache and return a fresh fetch."""
+async def refresh_options(
+    ticker: str,
+    expiration: Optional[str] = Query(default=None),
+    max_moneyness: float = Query(default=0.30, ge=0.05, le=1.0),
+):
     ticker = ticker.upper()
-    await cache_delete(options_chain_key(ticker))
-    return await get_options(ticker)
+    raw_key = options_chain_key(ticker) + (f":{expiration}" if expiration else "")
+    await cache_delete(raw_key)
+    return await get_options(ticker, expiration, max_moneyness)
