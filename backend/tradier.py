@@ -13,8 +13,13 @@ HEADERS = {
     "Accept": "application/json",
 }
 
-def get_options_chain(ticker: str):
-    # Step 1: get available expiry dates
+def get_options_chain(ticker: str, expiration: str = None):
+    """
+    Returns (contracts, expirations) tuple.
+    If expiration is provided, fetches that specific expiry.
+    Otherwise fetches the nearest future expiry.
+    """
+    # Step 1: get all available expiry dates
     exp_resp = requests.get(
         f"{BASE_URL}/markets/options/expirations",
         headers=HEADERS,
@@ -24,30 +29,28 @@ def get_options_chain(ticker: str):
     expirations = exp_resp.json().get("expirations", {}).get("date", [])
 
     if not expirations:
-        return []
+        return [], []
 
-    # Step 2: skip expired dates — always fetch a future expiry
-    today = datetime.date.today().isoformat()
-    future_expiries = [e for e in expirations if e > today]
-
-    if not future_expiries:
-        # fallback: use whatever is available even if expired
-        nearest_expiry = expirations[0]
+    # Step 2: pick expiry — use provided one or nearest future
+    if expiration and expiration in expirations:
+        selected_expiry = expiration
     else:
-        nearest_expiry = future_expiries[0]
+        today = datetime.date.today().isoformat()
+        future_expiries = [e for e in expirations if e > today]
+        selected_expiry = future_expiries[0] if future_expiries else expirations[0]
 
-    # Step 3: fetch the options chain for that expiry
+    # Step 3: fetch the options chain
     chain_resp = requests.get(
         f"{BASE_URL}/markets/options/chains",
         headers=HEADERS,
-        params={"symbol": ticker, "expiration": nearest_expiry, "greeks": "false"}
+        params={"symbol": ticker, "expiration": selected_expiry, "greeks": "false"}
     )
     chain_resp.raise_for_status()
 
     options = chain_resp.json().get("options", {}).get("option", [])
 
-    # Tradier returns a single dict instead of a list when only one contract exists — normalise to always be a list
+    # Tradier returns a dict instead of list when only one contract exists
     if isinstance(options, dict):
         options = [options]
 
-    return options
+    return options, expirations
