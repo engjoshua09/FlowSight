@@ -257,38 +257,6 @@ export default function App() {
                 <button onClick={() => fetchOptions()} style={{ padding: "0.3rem 0.8rem", fontSize: "0.8rem", background: "#f59e0b", color: "#000", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap" }}>Apply</button>
               </div>
 
-              {/* Moneyness slider */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: "1rem",
-                marginBottom: "1rem", padding: "0.75rem 1rem",
-                background: "#1a1a1a", borderRadius: "6px", border: "1px solid #2a2a2a"
-              }}>
-                <span style={{ color: "#888", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
-                  OTM Range:
-                </span>
-                <input
-                  type="range"
-                  min={5} max={100} step={5}
-                  value={Math.round(maxMoneyness * 100)}
-                  onChange={(e) => setMaxMoneyness(Number(e.target.value) / 100)}
-                  style={{ flex: 1, accentColor: "#f59e0b", cursor: "pointer" }}
-                />
-                <span style={{ color: "#f59e0b", fontWeight: "bold", fontSize: "0.9rem", minWidth: "3rem" }}>
-                  ±{Math.round(maxMoneyness * 100)}%
-                </span>
-                <button
-                  onClick={() => fetchOptions()}
-                  style={{
-                    padding: "0.3rem 0.8rem", fontSize: "0.8rem",
-                    background: "#f59e0b", color: "#000",
-                    border: "none", borderRadius: "4px",
-                    cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap"
-                  }}
-                >
-                  Apply
-                </button>
-              </div>
-
               {flagged.length === 0
                 ? <p style={{ color: "#888" }}>No flagged contracts for {data.ticker} within ±{Math.round(maxMoneyness * 100)}% of spot.</p>
                 : <UOATable contracts={flagged} />

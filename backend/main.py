@@ -87,6 +87,7 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
         # Normalise field names for frontend and ensure bid/ask are present
         enriched.append({
             **c,
+            "type": c.get("option_type", ""),
             "iv": round(sigma, 4),
             "bid": c.get("bid") or 0,
             "ask": c.get("ask") or 0,
