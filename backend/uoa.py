@@ -2,13 +2,16 @@ import numpy as np
 from tradier import get_options_chain
 import datetime
 
-# Flagging thresholds — configurable constants
-MIN_VOLUME_OI_RATIO = 3.0
+# Flagging thresholds
+MIN_VOLUME_OI_RATIO = 10.0
+MIN_UOA_SCORE = 3.0
 MIN_ZSCORE = 2.0
 MAX_DTE = 30
+MIN_ABSOLUTE_VOLUME = 100
+MIN_OI = 10
+# MAX_MONEYNESS removed — now passed in as a parameter from the frontend slider
 
 def compute_dte(expiration_date: str) -> int:
-    """Returns days to expiry from today."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
         today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -17,46 +20,29 @@ def compute_dte(expiration_date: str) -> int:
         return 999
 
 def compute_zscore(volume: float, historical_volumes: list) -> float:
-    """
-    Z-score = (today's volume - 30d mean) / 30d std deviation
-    Measures how many standard deviations above normal today's volume is.
-    """
     if len(historical_volumes) < 5:
-        return 0.0  # not enough data to compute reliable z-score
+        return 0.0
 
     mean = np.mean(historical_volumes)
     std = np.std(historical_volumes)
 
     if std == 0:
-        return 0.0  # avoid division by zero if all volumes are identical
+        return 0.0
 
     return float((volume - mean) / std)
 
 def compute_volume_oi_ratio(volume: float, open_interest: float) -> float:
-    """ Volume/OI ratio — measures how much new activity is happening relative to existing positions. """
     if open_interest <= 0:
-        return 0.0  # avoid division by zero
+        return 0.0
     return float(volume / open_interest)
 
 def compute_uoa_score(volume: float, open_interest: float, historical_volumes: list) -> float:
-    """
-    UOA_score = (Volume / OI) × Volume_Z-score
-    Higher score = more unusual the activity.
-    """
     ratio = compute_volume_oi_ratio(volume, open_interest)
     zscore = compute_zscore(volume, historical_volumes)
-
-    # Only positive z-scores matter — we want ABOVE average volume
     zscore = max(zscore, 0.0)
-
     return round(ratio * zscore, 4)
 
 def compute_call_put_ratio(contracts: list) -> dict:
-    """
-    Aggregates call vs put volume for the whole ticker.
-    Ratio > 1 = more calls = implied bullish bias
-    Ratio < 1 = more puts  = implied bearish bias
-    """
     call_volume = sum(
         c.get("volume", 0) for c in contracts
         if c.get("option_type") == "call"
@@ -67,7 +53,7 @@ def compute_call_put_ratio(contracts: list) -> dict:
     )
 
     if put_volume == 0:
-        ratio = None  # can't compute
+        ratio = None
     else:
         ratio = round(call_volume / put_volume, 4)
 
@@ -82,19 +68,29 @@ def compute_call_put_ratio(contracts: list) -> dict:
         )
     }
 
-def score_contracts(contracts: list) -> list:
-    """
-    Takes enriched contracts (with Greeks already computed),
-    scores each one by UOA, and returns all contracts sorted by UOA score.
-    """
+def score_contracts(contracts: list, spot: float = 0, max_moneyness: float = 0.30) -> list:
     scored = []
 
     for c in contracts:
         volume = c.get("volume") or 0
         open_interest = c.get("open_interest") or 0
         expiration = c.get("expiration_date", "")
-        strike = c.get("strike")
         option_type = c.get("option_type", "")
+        strike = c.get("strike") or 0
+
+        # skip low absolute volume — mentor feedback
+        if volume < MIN_ABSOLUTE_VOLUME:
+            continue
+
+        # skip illiquid contracts
+        if open_interest < MIN_OI:
+            continue
+
+        # skip strikes outside user-selected moneyness range
+        if spot > 0 and strike > 0:
+            moneyness = abs(strike - spot) / spot
+            if moneyness > max_moneyness:
+                continue
 
         dte = compute_dte(expiration)
         simulated_history = simulate_historical_volumes(volume)
@@ -105,21 +101,21 @@ def score_contracts(contracts: list) -> list:
 
         is_flagged = (
             uoa_score > MIN_VOLUME_OI_RATIO and
+            uoa_score >= MIN_UOA_SCORE and
             dte <= MAX_DTE and
             volume > 0
         )
 
         scored.append({
-            **c,                    # keeps ALL fields from enrich_with_greeks
-            "type": option_type,    # normalise option_type -> type for frontend
-            "expiration": expiration,
+            **c,
             "dte": dte,
             "volume_oi_ratio": round(vol_oi_ratio, 4),
             "volume_zscore": round(zscore, 4),
             "uoa_score": uoa_score,
             "is_flagged": is_flagged,
             "disclaimer": (
-                "⚠ Elevated activity detected. May reflect directional positioning, hedging, or spread construction. "
+                "⚠ Elevated activity detected. May reflect directional "
+                "positioning, hedging, or spread construction. "
                 "Not a directional prediction."
                 if is_flagged else None
             )
@@ -129,16 +125,12 @@ def score_contracts(contracts: list) -> list:
     return scored
 
 def simulate_historical_volumes(current_volume: float) -> list:
-    """
-    Temporary placeholder — simulates 30 days of historical volume around the current volume with some random noise.
-    Replace with real Tradier historical data in M1.
-    """
     if current_volume == 0:
         return [0] * 30
 
-    np.random.seed(42)  # reproducible results
-    mean = current_volume * 0.4  # assume today is above average
+    np.random.seed(42)
+    mean = current_volume * 0.4
     std = mean * 0.3
     history = np.random.normal(mean, std, 30)
-    history = np.clip(history, 0, None)  # no negative volumes
+    history = np.clip(history, 0, None)
     return history.tolist()

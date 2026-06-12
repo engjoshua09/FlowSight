@@ -20,14 +20,43 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("chain");
   const [typeFilter, setTypeFilter] = useState("all");
   const [minVolume, setMinVolume] = useState(0);
+  const [selectedExpiry, setSelectedExpiry] = useState(null);
+  const [maxMoneyness, setMaxMoneyness] = useState(0.30);
 
-  async function fetchOptions(url) {
+  function buildUrl(base, expiry, moneyness) {
+    const params = new URLSearchParams();
+    if (expiry) params.set("expiration", expiry);
+    params.set("max_moneyness", moneyness);
+    return `${base}?${params.toString()}`;
+  }
+
+  async function fetchOptions(overrideUrl) {
     if (!ticker) return;
     setLoading(true);
     setError(null);
     setData(null);
     try {
-      const res = await fetch(url || `${API_URL}/options/${ticker}`);
+      const url = overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry, maxMoneyness);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const json = await res.json();
+      setData(json);
+      if (!selectedExpiry) setSelectedExpiry(json.expirations?.[0] || null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchByExpiry(expiry) {
+    if (!ticker) return;
+    setSelectedExpiry(expiry);
+    setLoading(true);
+    setError(null);
+    try {
+      const url = buildUrl(`${API_URL}/options/${ticker}`, expiry, maxMoneyness);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
       setData(json);
@@ -40,7 +69,8 @@ export default function App() {
 
   async function refreshOptions() {
     if (!ticker) return;
-    fetchOptions(`${API_URL}/options/${ticker}/refresh`);
+    const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry, maxMoneyness);
+    fetchOptions(url);
   }
 
   const spot = data?.spot_price ?? 0;
@@ -56,6 +86,7 @@ export default function App() {
   }
 
   const allContracts = data?.contracts ?? [];
+  const expirations = data?.expirations ?? [];
 
   const filtered = allContracts.filter(c => {
     const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
@@ -82,7 +113,7 @@ export default function App() {
       </p>
 
       {/* Search */}
-      <div style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+      <div style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <input
           value={ticker}
           onChange={(e) => setTicker(e.target.value.toUpperCase())}
@@ -111,6 +142,22 @@ export default function App() {
           }}>
             {loading ? "..." : "🔄 Refresh"}
           </button>
+        )}
+
+        {expirations.length > 0 && (
+          <select
+            value={selectedExpiry || ""}
+            onChange={(e) => fetchByExpiry(e.target.value)}
+            style={{
+              padding: "0.6rem 1rem", fontSize: "0.9rem",
+              background: "#1a1a1a", border: "1px solid #333",
+              color: "#fff", borderRadius: "6px", cursor: "pointer",
+            }}
+          >
+            {expirations.map(exp => (
+              <option key={exp} value={exp}>{exp}</option>
+            ))}
+          </select>
         )}
       </div>
 
@@ -203,8 +250,41 @@ export default function App() {
                 or spread construction. These are signals for further research —
                 not trading recommendations.
               </div>
+
+              {/* Moneyness slider */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: "1rem",
+                marginBottom: "1rem", padding: "0.75rem 1rem",
+                background: "#1a1a1a", borderRadius: "6px", border: "1px solid #2a2a2a"
+              }}>
+                <span style={{ color: "#888", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                  OTM Range:
+                </span>
+                <input
+                  type="range"
+                  min={5} max={100} step={5}
+                  value={Math.round(maxMoneyness * 100)}
+                  onChange={(e) => setMaxMoneyness(Number(e.target.value) / 100)}
+                  style={{ flex: 1, accentColor: "#f59e0b", cursor: "pointer" }}
+                />
+                <span style={{ color: "#f59e0b", fontWeight: "bold", fontSize: "0.9rem", minWidth: "3rem" }}>
+                  ±{Math.round(maxMoneyness * 100)}%
+                </span>
+                <button
+                  onClick={() => fetchOptions()}
+                  style={{
+                    padding: "0.3rem 0.8rem", fontSize: "0.8rem",
+                    background: "#f59e0b", color: "#000",
+                    border: "none", borderRadius: "4px",
+                    cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap"
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+
               {flagged.length === 0
-                ? <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
+                ? <p style={{ color: "#888" }}>No flagged contracts for {data.ticker} within ±{Math.round(maxMoneyness * 100)}% of spot.</p>
                 : <UOATable contracts={flagged} />
               }
             </>
