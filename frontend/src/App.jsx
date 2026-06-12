@@ -6,47 +6,47 @@ import GreeksPanel from "./GreeksPanel";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const VOLUME_FILTERS = [
-  { label: "All", value: 0 },
-  { label: "Vol > 100", value: 100 },
-  { label: "Vol > 500", value: 500 },
+  { label: "All",        value: 0    },
+  { label: "Vol > 100",  value: 100  },
+  { label: "Vol > 500",  value: 500  },
   { label: "Vol > 1000", value: 1000 },
 ];
 
 const POPULAR_TICKERS = [
-  { symbol: "AAPL",  name: "Apple" },
-  { symbol: "MSFT",  name: "Microsoft" },
-  { symbol: "NVDA",  name: "NVIDIA" },
-  { symbol: "TSLA",  name: "Tesla" },
-  { symbol: "AMZN",  name: "Amazon" },
-  { symbol: "GOOGL", name: "Alphabet" },
-  { symbol: "META",  name: "Meta" },
-  { symbol: "SPY",   name: "S&P 500 ETF" },
-  { symbol: "QQQ",   name: "Nasdaq ETF" },
-  { symbol: "AMD",   name: "AMD" },
-  { symbol: "NFLX",  name: "Netflix" },
-  { symbol: "MU",    name: "Micron" },
+  { symbol: "AAPL",  name: "Apple"        },
+  { symbol: "MSFT",  name: "Microsoft"    },
+  { symbol: "NVDA",  name: "NVIDIA"       },
+  { symbol: "TSLA",  name: "Tesla"        },
+  { symbol: "AMZN",  name: "Amazon"       },
+  { symbol: "GOOGL", name: "Alphabet"     },
+  { symbol: "META",  name: "Meta"         },
+  { symbol: "SPY",   name: "S&P 500 ETF"  },
+  { symbol: "QQQ",   name: "Nasdaq ETF"   },
+  { symbol: "AMD",   name: "AMD"          },
+  { symbol: "NFLX",  name: "Netflix"      },
+  { symbol: "MU",    name: "Micron"       },
 ];
 
 export default function App() {
-  const [ticker, setTicker] = useState("");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("chain");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [minVolume, setMinVolume] = useState(0);
+  const [ticker, setTicker]               = useState("");
+  const [data, setData]                   = useState(null);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState(null);
+  const [activeTab, setActiveTab]         = useState("chain");
+  const [typeFilter, setTypeFilter]       = useState("all");
+  const [minVolume, setMinVolume]         = useState(0);
   const [selectedExpiry, setSelectedExpiry] = useState(null);
-  const [maxMoneyness, setMaxMoneyness] = useState(0.30);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const inputRef = useRef(null);
+  const [maxMoneyness, setMaxMoneyness]   = useState(0.30);
+  const [showDropdown, setShowDropdown]   = useState(false);
+  const inputRef    = useRef(null);
   const dropdownRef = useRef(null);
 
-  // close dropdown when clicking outside
+  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e) {
       if (
         dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-        inputRef.current && !inputRef.current.contains(e.target)
+        inputRef.current   && !inputRef.current.contains(e.target)
       ) {
         setShowDropdown(false);
       }
@@ -142,9 +142,9 @@ export default function App() {
     fetchOptions(url);
   }
 
-  const spot = data?.spot_price ?? 0;
-  const allContracts = data?.contracts ?? [];
-  const expirations = data?.expirations ?? [];
+  const spot          = data?.spot_price ?? 0;
+  const allContracts  = data?.contracts  ?? [];
+  const expirations   = data?.expirations ?? [];
 
   function sortAroundSpot(contracts) {
     const above = contracts
@@ -158,12 +158,12 @@ export default function App() {
 
   const filtered = allContracts.filter(c => {
     const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
-    const volMatch = (c.volume || 0) >= minVolume;
+    const volMatch  = (c.volume || 0) >= minVolume;
     return typeMatch && volMatch;
   });
 
   const sortedChain = sortAroundSpot(filtered);
-  const flagged = allContracts.filter(c => c.is_flagged);
+  const flagged     = allContracts.filter(c => c.is_flagged);
 
   const biasColor = data?.implied_bias === "bullish" ? "#00d4aa"
     : data?.implied_bias === "bearish" ? "#ff6b6b" : "#888";
@@ -195,7 +195,7 @@ export default function App() {
             }}
             onFocus={() => setShowDropdown(true)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") fetchOptions();
+              if (e.key === "Enter")  fetchOptions();
               if (e.key === "Escape") setShowDropdown(false);
             }}
             placeholder="Enter ticker (e.g. AAPL)"
@@ -290,30 +290,30 @@ export default function App() {
 
       {data && (
         <>
-          {/* Summary Bar */}
+          {/* ── Summary bar ──────────────────────────────────────── */}
           <div style={{
             display: "flex", gap: "1.5rem", flexWrap: "wrap",
             marginBottom: "1.5rem", padding: "1rem",
             background: "#1a1a1a", borderRadius: "8px",
             border: "1px solid #2a2a2a"
           }}>
-            <Stat label="Ticker" value={data.ticker} />
-            <Stat label="Spot Price" value={`$${spot.toFixed(2)}`} color="#fff" />
-            <Stat label="Implied Bias" value={data.implied_bias?.toUpperCase()} color={biasColor} />
-            <Stat label="Call/Put Ratio" value={data.call_put_ratio?.toFixed(2)} />
-            <Stat label="Call Volume" value={data.call_volume?.toLocaleString()} color="#00d4aa" />
-            <Stat label="Put Volume" value={data.put_volume?.toLocaleString()} color="#ff6b6b" />
-            <Stat label="🚨 Flagged" value={flagged.length} color="#f59e0b" />
+            <Stat label="Ticker"        value={data.ticker} />
+            <Stat label="Spot Price"    value={`$${spot.toFixed(2)}`}              color="#fff"     />
+            <Stat label="Implied Bias"  value={data.implied_bias?.toUpperCase()}   color={biasColor}/>
+            <Stat label="Call/Put Ratio"value={data.call_put_ratio?.toFixed(2)} />
+            <Stat label="Call Volume"   value={data.call_volume?.toLocaleString()} color="#00d4aa"  />
+            <Stat label="Put Volume"    value={data.put_volume?.toLocaleString()}  color="#ff6b6b"  />
+            <Stat label="🚨 Flagged"    value={flagged.length}                     color="#f59e0b"  />
           </div>
 
-          {/* Tabs */}
+          {/* ── Tabs ─────────────────────────────────────────────── */}
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-            <Tab label={`📊 Full Chain (${allContracts.length})`} id="chain" active={activeTab} onClick={setActiveTab} />
-            <Tab label={`🚨 UOA Signals (${flagged.length})`} id="uoa" active={activeTab} onClick={setActiveTab} />
-            <Tab label="⚙ Greeks Calc" id="greeks" active={activeTab} onClick={setActiveTab} />
+            <Tab label={`📊 Full Chain (${allContracts.length})`} id="chain"   active={activeTab} onClick={setActiveTab} />
+            <Tab label={`🚨 UOA Signals (${flagged.length})`}     id="uoa"     active={activeTab} onClick={setActiveTab} />
+            <Tab label="⚙ Greeks Calc"                            id="greeks"  active={activeTab} onClick={setActiveTab} />
           </div>
 
-          {/* Full Chain tab */}
+          {/* ── Full Chain tab ───────────────────────────────────── */}
           {activeTab === "chain" && (
             <>
               <div style={{
@@ -357,7 +357,7 @@ export default function App() {
             </>
           )}
 
-          {/* UOA Tab */}
+          {/* ── UOA tab ──────────────────────────────────────────── */}
           {activeTab === "uoa" && (
             <>
               <div style={{
@@ -409,7 +409,7 @@ export default function App() {
             </>
           )}
 
-          {/* Greeks Calculator Tab */}
+          {/* ── Greeks tab ───────────────────────────────────────── */}
           {activeTab === "greeks" && (
             <GreeksPanel initialSpot={spot} />
           )}
