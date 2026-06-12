@@ -42,27 +42,56 @@ def get_spot_price(ticker: str) -> float:
 
 
 def dte_to_years(expiration_date: str) -> float:
+    """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        days = max((exp - datetime.datetime.today()).days, 0)
+        today = datetime.datetime.today().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        days = max((exp - today).days, 0)
         return max(days / 365, 1e-4)
     except Exception:
         return 1e-4
 
 
 def enrich_with_greeks(contracts: list, spot: float) -> list:
+    """Add delta/gamma/theta/vega to each raw Tradier contract dict."""
     enriched = []
     for c in contracts:
         strike = c.get("strike", 0)
-        sigma = c.get("implied_volatility") or 0.3
         option_type = c.get("option_type", "call")
         T = dte_to_years(c.get("expiration_date", ""))
 
+        # Try all possible IV field names Tradier uses
+        sigma = (
+            c.get("greeks", {}).get("mid_iv")
+            or c.get("smv_vol")
+            or c.get("implied_volatility")
+            or 0.3
+        )
+
+        # Ensure sigma is valid
+        try:
+            sigma = float(sigma)
+            if sigma <= 0 or sigma > 5:
+                sigma = 0.3
+        except (TypeError, ValueError):
+            sigma = 0.3
+
         greeks = {}
         if spot > 0 and strike > 0:
-            greeks = compute_greeks(spot, strike, T, RISK_FREE_RATE, sigma, option_type)
+            greeks = compute_greeks(
+                spot, strike, T, RISK_FREE_RATE, sigma, option_type
+            )
 
-        enriched.append({**c, **greeks})
+        # Normalise field names for frontend and ensure bid/ask are present
+        enriched.append({
+            **c,
+            "iv": round(sigma, 4),
+            "bid": c.get("bid") or 0,
+            "ask": c.get("ask") or 0,
+            **greeks
+        })
     return enriched
 
 
@@ -77,7 +106,7 @@ app = FastAPI(title="FlowSight API", version="0.4.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=["*"],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
