@@ -75,7 +75,9 @@ export default function App() {
     setError(null);
     setData(null);
     try {
-      const url = overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry, maxMoneyness);
+      const url = overrideUrl || buildUrl(
+        `${API_URL}/options/${ticker}`, selectedExpiry, maxMoneyness
+      );
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -86,15 +88,6 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function selectTicker(symbol) {
-    setTicker(symbol);
-    setShowDropdown(false);
-    // auto-search after selecting
-    setTimeout(() => {
-      fetchOptionsForTicker(symbol);
-    }, 0);
   }
 
   async function fetchOptionsForTicker(sym) {
@@ -117,6 +110,12 @@ export default function App() {
     }
   }
 
+  function selectTicker(symbol) {
+    setTicker(symbol);
+    setShowDropdown(false);
+    setTimeout(() => fetchOptionsForTicker(symbol), 0);
+  }
+
   async function fetchByExpiry(expiry) {
     if (!ticker) return;
     setSelectedExpiry(expiry);
@@ -137,11 +136,15 @@ export default function App() {
 
   async function refreshOptions() {
     if (!ticker) return;
-    const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry, maxMoneyness);
+    const url = buildUrl(
+      `${API_URL}/options/${ticker}/refresh`, selectedExpiry, maxMoneyness
+    );
     fetchOptions(url);
   }
 
   const spot = data?.spot_price ?? 0;
+  const allContracts = data?.contracts ?? [];
+  const expirations = data?.expirations ?? [];
 
   function sortAroundSpot(contracts) {
     const above = contracts
@@ -153,9 +156,6 @@ export default function App() {
     return [...below, ...above];
   }
 
-  const allContracts = data?.contracts ?? [];
-  const expirations = data?.expirations ?? [];
-
   const filtered = allContracts.filter(c => {
     const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
     const volMatch = (c.volume || 0) >= minVolume;
@@ -165,23 +165,26 @@ export default function App() {
   const sortedChain = sortAroundSpot(filtered);
   const flagged = allContracts.filter(c => c.is_flagged);
 
-  const biasColor = data?.implied_bias === "bullish"
-    ? "#00d4aa" : data?.implied_bias === "bearish"
-    ? "#ff6b6b" : "#888";
+  const biasColor = data?.implied_bias === "bullish" ? "#00d4aa"
+    : data?.implied_bias === "bearish" ? "#ff6b6b" : "#888";
 
   return (
     <div style={{
       padding: "2rem", fontFamily: "sans-serif",
       background: "#0f0f0f", minHeight: "100vh", color: "#fff"
     }}>
-
       <h1 style={{ color: "#00d4aa", marginBottom: "0.25rem" }}>⚡ FlowSight</h1>
       <p style={{ color: "#888", marginTop: 0, marginBottom: "1.5rem" }}>
         Options Flow Analytics Platform
       </p>
 
-      {/* Search */}
-      <div style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+      {/* ── Search bar ─────────────────────────────────────────── */}
+      <div style={{
+        marginBottom: "1.5rem", display: "flex",
+        gap: "0.5rem", alignItems: "flex-start", flexWrap: "wrap"
+      }}>
+
+        {/* Input + dropdown wrapper */}
         <div style={{ position: "relative" }}>
           <input
             ref={inputRef}
@@ -215,7 +218,10 @@ export default function App() {
                 maxHeight: "260px", overflowY: "auto",
               }}
             >
-              <div style={{ padding: "0.4rem 0.8rem", color: "#555", fontSize: "0.72rem", borderBottom: "1px solid #2a2a2a" }}>
+              <div style={{
+                padding: "0.4rem 0.8rem", color: "#555",
+                fontSize: "0.72rem", borderBottom: "1px solid #2a2a2a"
+              }}>
                 Popular tickers
               </div>
               {filteredTickers.map(t => (
@@ -230,7 +236,9 @@ export default function App() {
                   onMouseEnter={e => e.currentTarget.style.background = "#252525"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
-                  <span style={{ color: "#00d4aa", fontWeight: "bold", fontSize: "0.9rem" }}>{t.symbol}</span>
+                  <span style={{ color: "#00d4aa", fontWeight: "bold", fontSize: "0.9rem" }}>
+                    {t.symbol}
+                  </span>
                   <span style={{ color: "#666", fontSize: "0.8rem" }}>{t.name}</span>
                 </div>
               ))}
@@ -276,7 +284,9 @@ export default function App() {
       </div>
 
       {loading && <p style={{ color: "#888" }}>Loading options chain...</p>}
-      {error && <p style={{ color: "#ff4444" }}>⚠ {error} — is the backend running?</p>}
+      {error   && (
+        <p style={{ color: "#ff4444" }}>⚠ {error} — is the backend running?</p>
+      )}
 
       {data && (
         <>
@@ -303,43 +313,38 @@ export default function App() {
             <Tab label="⚙ Greeks Calc" id="greeks" active={activeTab} onClick={setActiveTab} />
           </div>
 
-          {/* Full Chain Tab */}
+          {/* Full Chain tab */}
           {activeTab === "chain" && (
             <>
-              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{
+                display: "flex", gap: "0.5rem", marginBottom: "1rem",
+                alignItems: "center", flexWrap: "wrap"
+              }}>
                 <span style={{ color: "#888", fontSize: "0.85rem" }}>Type:</span>
                 {["all", "call", "put"].map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setTypeFilter(f)}
-                    style={{
-                      padding: "0.3rem 0.8rem", fontSize: "0.85rem",
-                      background: typeFilter === f
-                        ? (f === "call" ? "#00d4aa" : f === "put" ? "#ff6b6b" : "#555")
-                        : "#1a1a1a",
-                      color: typeFilter === f ? "#000" : "#888",
-                      border: "1px solid #333", borderRadius: "4px",
-                      cursor: "pointer", fontWeight: typeFilter === f ? "bold" : "normal",
-                      textTransform: "capitalize"
-                    }}
-                  >
+                  <button key={f} onClick={() => setTypeFilter(f)} style={{
+                    padding: "0.3rem 0.8rem", fontSize: "0.85rem",
+                    background: typeFilter === f
+                      ? (f === "call" ? "#00d4aa" : f === "put" ? "#ff6b6b" : "#555")
+                      : "#1a1a1a",
+                    color: typeFilter === f ? "#000" : "#888",
+                    border: "1px solid #333", borderRadius: "4px",
+                    cursor: "pointer", fontWeight: typeFilter === f ? "bold" : "normal",
+                    textTransform: "capitalize"
+                  }}>
                     {f === "all" ? "All" : f === "call" ? "📈 Calls" : "📉 Puts"}
                   </button>
                 ))}
 
                 <span style={{ color: "#888", fontSize: "0.85rem", marginLeft: "0.5rem" }}>Volume:</span>
                 {VOLUME_FILTERS.map(f => (
-                  <button
-                    key={f.value}
-                    onClick={() => setMinVolume(f.value)}
-                    style={{
-                      padding: "0.3rem 0.8rem", fontSize: "0.85rem",
-                      background: minVolume === f.value ? "#a78bfa" : "#1a1a1a",
-                      color: minVolume === f.value ? "#000" : "#888",
-                      border: "1px solid #333", borderRadius: "4px",
-                      cursor: "pointer", fontWeight: minVolume === f.value ? "bold" : "normal",
-                    }}
-                  >
+                  <button key={f.value} onClick={() => setMinVolume(f.value)} style={{
+                    padding: "0.3rem 0.8rem", fontSize: "0.85rem",
+                    background: minVolume === f.value ? "#a78bfa" : "#1a1a1a",
+                    color: minVolume === f.value ? "#000" : "#888",
+                    border: "1px solid #333", borderRadius: "4px",
+                    cursor: "pointer", fontWeight: minVolume === f.value ? "bold" : "normal",
+                  }}>
                     {f.label}
                   </button>
                 ))}
@@ -365,7 +370,6 @@ export default function App() {
                 not trading recommendations.
               </div>
 
-              {/* Moneyness slider */}
               <div style={{
                 display: "flex", alignItems: "center", gap: "1rem",
                 marginBottom: "1rem", padding: "0.75rem 1rem",
@@ -375,30 +379,31 @@ export default function App() {
                   OTM Range:
                 </span>
                 <input
-                  type="range"
-                  min={5} max={100} step={5}
+                  type="range" min={5} max={100} step={5}
                   value={Math.round(maxMoneyness * 100)}
                   onChange={(e) => setMaxMoneyness(Number(e.target.value) / 100)}
                   style={{ flex: 1, accentColor: "#f59e0b", cursor: "pointer" }}
                 />
-                <span style={{ color: "#f59e0b", fontWeight: "bold", fontSize: "0.9rem", minWidth: "3rem" }}>
+                <span style={{
+                  color: "#f59e0b", fontWeight: "bold",
+                  fontSize: "0.9rem", minWidth: "3rem"
+                }}>
                   ±{Math.round(maxMoneyness * 100)}%
                 </span>
-                <button
-                  onClick={() => fetchOptions()}
-                  style={{
-                    padding: "0.3rem 0.8rem", fontSize: "0.8rem",
-                    background: "#f59e0b", color: "#000",
-                    border: "none", borderRadius: "4px",
-                    cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap"
-                  }}
-                >
+                <button onClick={() => fetchOptions()} style={{
+                  padding: "0.3rem 0.8rem", fontSize: "0.8rem",
+                  background: "#f59e0b", color: "#000",
+                  border: "none", borderRadius: "4px",
+                  cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap"
+                }}>
                   Apply
                 </button>
               </div>
 
               {flagged.length === 0
-                ? <p style={{ color: "#888" }}>No flagged contracts for {data.ticker} within ±{Math.round(maxMoneyness * 100)}% of spot.</p>
+                ? <p style={{ color: "#888" }}>
+                    No flagged contracts for {data.ticker} within ±{Math.round(maxMoneyness * 100)}% of spot.
+                  </p>
                 : <UOATable contracts={flagged} />
               }
             </>
