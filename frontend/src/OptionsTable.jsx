@@ -7,7 +7,7 @@ import { useState } from "react";
 const COLUMNS = [
   { accessorKey: "strike",        header: "Strike",   sortingFn: "basic" },
   { accessorKey: "type",          header: "Type" },
-  { accessorKey: "expiration",    header: "Expiry" },
+  { accessorKey: "expiration_date", header: "Expiry", sortingFn: "basic" },
   { accessorKey: "bid",           header: "Bid",      sortingFn: "basic" },
   { accessorKey: "ask",           header: "Ask",      sortingFn: "basic" },
   { accessorKey: "volume",        header: "Volume",   sortingFn: "basic" },

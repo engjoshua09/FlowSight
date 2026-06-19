@@ -142,10 +142,18 @@ export default function App() {
   const expirations  = data?.expirations ?? [];
 
   function sortAroundSpot(contracts) {
-    const above = contracts.filter(c => c.strike >= spot).sort((a, b) => a.strike - b.strike);
-    const below = contracts.filter(c => c.strike < spot).sort((a, b) => b.strike - a.strike);
-    return [...below, ...above];
+  // Get unique strikes sorted by distance from spot
+  const strikes = [...new Set(contracts.map(c => c.strike))]
+    .sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot));
+  
+  // For each strike sorted by proximity, add all contracts at that strike
+  const result = [];
+  for (const strike of strikes) {
+    const atStrike = contracts.filter(c => c.strike === strike);
+    result.push(...atStrike);
   }
+  return result;
+}
 
   const filtered = allContracts.filter(c => {
     const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
