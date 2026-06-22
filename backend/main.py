@@ -63,8 +63,9 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
         T = dte_to_years(c.get("expiration_date", ""))
 
         # Try all possible IV field names Tradier uses
+        greeks_data = c.get("greeks") or {}   # In case of null values
         sigma = (
-            c.get("greeks", {}).get("mid_iv")
+            greeks_data.get("mid_iv")
             or c.get("smv_vol")
             or c.get("implied_volatility")
             or 0.3
