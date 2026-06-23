@@ -255,6 +255,33 @@ export default function App() {
 
           {activeTab === "uoa" && (
             <>
+            {/* UOA Explanation */}
+            <details style={{
+              marginBottom: "1rem", padding: "0.75rem 1rem",
+              background: "#111", border: "1px solid #2a2a2a",
+              borderRadius: "6px", cursor: "pointer"
+            }}>
+              <summary style={{ color: "#888", fontSize: "0.85rem", fontWeight: "bold", listStyle: "none" }}>
+                ℹ️ How does UOA detection work? (click to expand)
+              </summary>
+              <div style={{ marginTop: "0.75rem", color: "#666", fontSize: "0.82rem", lineHeight: 1.7 }}>
+                <p style={{ marginBottom: "0.5rem" }}>
+                  <strong style={{ color: "#f59e0b" }}>UOA Score = (Volume / Open Interest) × Z-Score</strong>
+                </p>
+                <p style={{ marginBottom: "0.5rem" }}>
+                  <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> — measures how much new activity is happening relative to existing positions. A ratio above 1.0 means more contracts traded today than currently exist as open positions.
+                </p>
+                <p style={{ marginBottom: "0.5rem" }}>
+                  <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard deviations above the 30-day average today's volume is. A Z-score above 2.0 means today's volume is statistically unusual.
+                </p>
+                <p style={{ marginBottom: "0.5rem" }}>
+                  <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3, volume {">"} 100, and DTE ≤ 30 days.
+                </p>
+                <p style={{ color: "#555" }}>
+                  ⚠ High UOA does not confirm directional intent. Activity may reflect hedging, spread construction, or position rolling.
+                </p>
+              </div>
+            </details>
               <div style={{ padding: "0.75rem 1rem", marginBottom: "1rem", background: "#1a1a0a", border: "1px solid #f59e0b", borderRadius: "6px", color: "#f59e0b", fontSize: "0.85rem" }}>
                 ⚠ Elevated activity may reflect directional positioning, hedging, or spread construction. These are signals for further research — not trading recommendations.
               </div>
