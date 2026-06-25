@@ -253,6 +253,7 @@ export default function App() {
             </>
           )}
 
+          {/*
           {activeTab === "uoa" && (
             <>
             {/* UOA Explanation */}
@@ -298,6 +299,7 @@ export default function App() {
               }
             </>
           )}
+          */}
 
           {activeTab === "greeks" && <GreeksPanel initialSpot={spot} />}
         </>
