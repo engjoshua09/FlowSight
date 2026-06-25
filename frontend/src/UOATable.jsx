@@ -7,7 +7,6 @@ import { useState } from "react";
 const COLUMNS = [
   { accessorKey: "strike",         header: "Strike",     sortingFn: "basic" },
   { accessorKey: "type",           header: "Type" },
-  { accessorKey: "expiration",     header: "Expiry" },
   { accessorKey: "dte",            header: "DTE",        sortingFn: "basic" },
   { accessorKey: "volume",         header: "Volume",     sortingFn: "basic" },
   { accessorKey: "open_interest",  header: "OI",         sortingFn: "basic" },
