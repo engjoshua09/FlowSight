@@ -36,7 +36,6 @@ export default function App() {
   const [typeFilter, setTypeFilter]       = useState("all");
   const [minVolume, setMinVolume]         = useState(0);
   const [selectedExpiry, setSelectedExpiry] = useState(null);
-  const [maxMoneyness, setMaxMoneyness]   = useState(0.30);
   const [showDropdown, setShowDropdown]   = useState(false);
   const inputRef    = useRef(null);
   const dropdownRef = useRef(null);
@@ -60,10 +59,10 @@ export default function App() {
         t.symbol.startsWith(ticker) || t.name.toUpperCase().startsWith(ticker)
       );
 
-  function buildUrl(base, expiry, moneyness) {
+  function buildUrl(base, expiry) {
     const params = new URLSearchParams();
     if (expiry) params.set("expiration", expiry);
-    params.set("max_moneyness", moneyness);
+    params.set("max_moneyness", 0.5);
     return `${base}?${params.toString()}`;
   }
 
@@ -74,7 +73,7 @@ export default function App() {
     setError(null);
     setData(null);
     try {
-      const url = overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry, maxMoneyness);
+      const url = overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -94,7 +93,7 @@ export default function App() {
     setError(null);
     setData(null);
     try {
-      const url = buildUrl(`${API_URL}/options/${sym}`, null, maxMoneyness);
+      const url = buildUrl(`${API_URL}/options/${sym}`, null);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -119,7 +118,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const url = buildUrl(`${API_URL}/options/${ticker}`, expiry, maxMoneyness);
+      const url = buildUrl(`${API_URL}/options/${ticker}`, expiry);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -133,7 +132,7 @@ export default function App() {
 
   async function refreshOptions() {
     if (!ticker) return;
-    const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry, maxMoneyness);
+    const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry);
     fetchOptions(url);
   }
 
@@ -142,18 +141,15 @@ export default function App() {
   const expirations  = data?.expirations ?? [];
 
   function sortAroundSpot(contracts) {
-  // Get unique strikes sorted by distance from spot
-  const strikes = [...new Set(contracts.map(c => c.strike))]
-    .sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot));
-  
-  // For each strike sorted by proximity, add all contracts at that strike
-  const result = [];
-  for (const strike of strikes) {
-    const atStrike = contracts.filter(c => c.strike === strike);
-    result.push(...atStrike);
+    const strikes = [...new Set(contracts.map(c => c.strike))]
+      .sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot));
+    const result = [];
+    for (const strike of strikes) {
+      const atStrike = contracts.filter(c => c.strike === strike);
+      result.push(...atStrike);
+    }
+    return result;
   }
-  return result;
-}
 
   const filtered = allContracts.filter(c => {
     const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
@@ -171,6 +167,7 @@ export default function App() {
       <h1 style={{ color: "#00d4aa", marginBottom: "0.25rem" }}>⚡ FlowSight</h1>
       <p style={{ color: "#888", marginTop: 0, marginBottom: "1.5rem" }}>Options Flow Analytics Platform</p>
 
+      {/* Search bar */}
       <div style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ position: "relative" }}>
           <input
@@ -216,6 +213,7 @@ export default function App() {
 
       {data && (
         <>
+          {/* Summary bar */}
           <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", marginBottom: "1.5rem", padding: "1rem", background: "#1a1a1a", borderRadius: "8px", border: "1px solid #2a2a2a" }}>
             <Stat label="Ticker"         value={data.ticker} />
             <Stat label="Spot Price"     value={`$${spot.toFixed(2)}`}              color="#fff" />
@@ -226,12 +224,14 @@ export default function App() {
             <Stat label="🚨 Flagged"     value={flagged.length}                     color="#f59e0b" />
           </div>
 
+          {/* Tabs */}
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
             <Tab label={`📊 Full Chain (${allContracts.length})`} id="chain"  active={activeTab} onClick={setActiveTab} />
             <Tab label={`🚨 UOA Signals (${flagged.length})`}     id="uoa"    active={activeTab} onClick={setActiveTab} />
             <Tab label="⚙ Greeks Calc"                            id="greeks" active={activeTab} onClick={setActiveTab} />
           </div>
 
+          {/* Full Chain tab */}
           {activeTab === "chain" && (
             <>
               <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignItems: "center", flexWrap: "wrap" }}>
@@ -253,54 +253,55 @@ export default function App() {
             </>
           )}
 
-          {/*
+          {/* UOA tab */}
           {activeTab === "uoa" && (
             <>
-            {/* UOA Explanation */}
-            <details style={{
-              marginBottom: "1rem", padding: "0.75rem 1rem",
-              background: "#111", border: "1px solid #2a2a2a",
-              borderRadius: "6px", cursor: "pointer"
-            }}>
-              <summary style={{ color: "#888", fontSize: "0.85rem", fontWeight: "bold", listStyle: "none" }}>
-                ℹ️ How does UOA detection work? (click to expand)
-              </summary>
-              <div style={{ marginTop: "0.75rem", color: "#666", fontSize: "0.82rem", lineHeight: 1.7 }}>
-                <p style={{ marginBottom: "0.5rem" }}>
-                  <strong style={{ color: "#f59e0b" }}>UOA Score = (Volume / Open Interest) × Z-Score</strong>
-                </p>
-                <p style={{ marginBottom: "0.5rem" }}>
-                  <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> — measures how much new activity is happening relative to existing positions. A ratio above 1.0 means more contracts traded today than currently exist as open positions.
-                </p>
-                <p style={{ marginBottom: "0.5rem" }}>
-                  <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard deviations above the 30-day average today's volume is. A Z-score above 2.0 means today's volume is statistically unusual.
-                </p>
-                <p style={{ marginBottom: "0.5rem" }}>
-                  <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3, volume {">"} 100, and DTE ≤ 30 days.
-                </p>
-                <p style={{ color: "#555" }}>
-                  ⚠ High UOA does not confirm directional intent. Activity may reflect hedging, spread construction, or position rolling.
-                </p>
-              </div>
-            </details>
+              {/* UOA Explanation */}
+              <details style={{ marginBottom: "1rem", padding: "0.75rem 1rem", background: "#111", border: "1px solid #2a2a2a", borderRadius: "6px", cursor: "pointer" }}>
+                <summary style={{ color: "#888", fontSize: "0.85rem", fontWeight: "bold", listStyle: "none" }}>
+                  ℹ️ How does UOA detection work? (click to expand)
+                </summary>
+                <div style={{ marginTop: "0.75rem", color: "#666", fontSize: "0.82rem", lineHeight: 1.7 }}>
+                  <p style={{ marginBottom: "0.5rem" }}>
+                    <strong style={{ color: "#f59e0b" }}>UOA Score = (Volume / Open Interest) × Z-Score</strong>
+                  </p>
+                  <p style={{ marginBottom: "0.5rem" }}>
+                    <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> — measures how much new activity is happening relative to existing positions. A ratio above 1.0 means more contracts traded today than currently exist as open positions.
+                  </p>
+                  <p style={{ marginBottom: "0.5rem" }}>
+                    <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard deviations above the 30-day average today's volume is. A Z-score above 2.0 means today's volume is statistically unusual.
+                  </p>
+                  <p style={{ marginBottom: "0.5rem" }}>
+                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3, volume {">"} 100, and DTE ≤ 30 days.
+                  </p>
+                  <p style={{ color: "#555" }}>
+                    ⚠ High UOA does not confirm directional intent. Activity may reflect hedging, spread construction, or position rolling.
+                  </p>
+                </div>
+              </details>
+
+              {/* Disclaimer */}
               <div style={{ padding: "0.75rem 1rem", marginBottom: "1rem", background: "#1a1a0a", border: "1px solid #f59e0b", borderRadius: "6px", color: "#f59e0b", fontSize: "0.85rem" }}>
                 ⚠ Elevated activity may reflect directional positioning, hedging, or spread construction. These are signals for further research — not trading recommendations.
               </div>
+
+              {/* OTM Range slider — commented out, to be re-enabled in M3 with real historical data
               <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem", padding: "0.75rem 1rem", background: "#1a1a1a", borderRadius: "6px", border: "1px solid #2a2a2a" }}>
                 <span style={{ color: "#888", fontSize: "0.85rem", whiteSpace: "nowrap" }}>OTM Range:</span>
                 <input type="range" min={5} max={100} step={5} value={Math.round(maxMoneyness * 100)} onChange={(e) => setMaxMoneyness(Number(e.target.value) / 100)} style={{ flex: 1, accentColor: "#f59e0b", cursor: "pointer" }} />
                 <span style={{ color: "#f59e0b", fontWeight: "bold", fontSize: "0.9rem", minWidth: "3rem" }}>±{Math.round(maxMoneyness * 100)}%</span>
                 <button onClick={() => fetchOptions()} style={{ padding: "0.3rem 0.8rem", fontSize: "0.8rem", background: "#f59e0b", color: "#000", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap" }}>Apply</button>
               </div>
+              */}
 
               {flagged.length === 0
-                ? <p style={{ color: "#888" }}>No flagged contracts for {data.ticker} within ±{Math.round(maxMoneyness * 100)}% of spot.</p>
+                ? <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
                 : <UOATable contracts={flagged} />
               }
             </>
           )}
-          */}
 
+          {/* Greeks tab */}
           {activeTab === "greeks" && <GreeksPanel initialSpot={spot} />}
         </>
       )}
