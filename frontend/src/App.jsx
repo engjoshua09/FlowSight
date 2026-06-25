@@ -253,6 +253,7 @@ export default function App() {
             </>
           )}
 
+          {/*
           {activeTab === "uoa" && (
             <>
               <div style={{ padding: "0.75rem 1rem", marginBottom: "1rem", background: "#1a1a0a", border: "1px solid #f59e0b", borderRadius: "6px", color: "#f59e0b", fontSize: "0.85rem" }}>
@@ -271,6 +272,7 @@ export default function App() {
               }
             </>
           )}
+          */}
 
           {activeTab === "greeks" && <GreeksPanel initialSpot={spot} />}
         </>
