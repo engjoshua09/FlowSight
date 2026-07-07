@@ -150,9 +150,13 @@ async def get_options(
 ):
     """
     Returns Greeks + UOA scores for all contracts on the selected expiry.
-    Outside market hours, Tradier's sandbox typically returns an empty
-    chain. In that case, falls back to the last snapshot captured during
-    market hours instead of a blank page or a hard error.
+    max_moneyness controls how far OTM/ITM contracts are included (0.05 to 1.0).
+    Default is 0.30 (30% from spot).
+
+    A Tradier request that raises an exception is a 502 (upstream failure).
+    A Tradier request that succeeds but returns zero contracts is a 404,
+    unless a market-hours snapshot exists to fall back to — in which case
+    the snapshot is served instead of a hard error.
     """
     ticker = ticker.upper()
     market_open = is_market_open()
@@ -172,10 +176,12 @@ async def get_options(
             contracts_raw, expirations = await asyncio.to_thread(
                 get_options_chain, ticker, expiration
             )
-            spot = await asyncio.to_thread(get_spot_price, ticker)
-            if not contracts_raw:
-                raise ValueError("empty chain")
         except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Tradier error: {exc}")
+
+        spot = await asyncio.to_thread(get_spot_price, ticker)
+
+        if not contracts_raw:
             snapshot = await cache_get(snap_key)
             if snapshot is not None and not market_open:
                 contracts_raw = snapshot["contracts"]
@@ -184,8 +190,7 @@ async def get_options(
                 from_snapshot = True
             else:
                 raise HTTPException(
-                    status_code=502,
-                    detail=f"Tradier error and no snapshot available: {exc}",
+                    status_code=404, detail=f"No options found for {ticker}"
                 )
 
         if not from_snapshot:
