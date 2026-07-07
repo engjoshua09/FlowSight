@@ -239,8 +239,8 @@ export default function App() {
                   </div>
                   <div style={{ color: "#555", fontSize: "0.85rem" }}>
                     US markets open Monday–Friday, 9:30am–4:00pm ET
-                    (9:30pm–4:00am SGT). No snapshot available yet for {data.ticker} —
-                    search during market hours to cache data for after-hours viewing.
+                    (9:30pm–4:00am SGT). No Options Data available yet for {data.ticker} —
+                    Please search during market hours instead.
                   </div>
                 </>
               ) : (
