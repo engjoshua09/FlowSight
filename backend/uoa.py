@@ -1,6 +1,9 @@
 import numpy as np
 from tradier import get_options_chain
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Flagging thresholds
 MIN_VOLUME_OI_RATIO = 10.0
@@ -68,7 +71,12 @@ def compute_call_put_ratio(contracts: list) -> dict:
         )
     }
 
-def score_contracts(contracts: list, spot: float = 0, max_moneyness: float = 0.30) -> list:
+def score_contracts(
+    contracts: list,
+    spot: float = 0,
+    max_moneyness: float = 0.30,
+    historical_volumes: list = None,      
+) -> list:
     scored = []
 
     for c in contracts:
@@ -78,7 +86,7 @@ def score_contracts(contracts: list, spot: float = 0, max_moneyness: float = 0.3
         option_type = c.get("option_type", "")
         strike = c.get("strike") or 0
 
-        # skip low absolute volume — mentor feedback
+        # skip low absolute volume 
         if volume < MIN_ABSOLUTE_VOLUME:
             continue
 
@@ -93,11 +101,20 @@ def score_contracts(contracts: list, spot: float = 0, max_moneyness: float = 0.3
                 continue
 
         dte = compute_dte(expiration)
-        simulated_history = simulate_historical_volumes(volume)
 
-        uoa_score = compute_uoa_score(volume, open_interest, simulated_history)
+        # Use real 30-day history if provided, else fall back to simulation
+        if historical_volumes and len(historical_volumes) >= 5:
+            hist = historical_volumes
+        else:
+            logger.warning(
+                "score_contracts: no real historical_volumes provided "
+                "— falling back to simulation. Z-scores will be unreliable."
+            )
+            hist = simulate_historical_volumes(volume)
+
+        uoa_score = compute_uoa_score(volume, open_interest, hist)
         vol_oi_ratio = compute_volume_oi_ratio(volume, open_interest)
-        zscore = compute_zscore(volume, simulated_history)
+        zscore = compute_zscore(volume, hist)
 
         is_flagged = (
             uoa_score > MIN_VOLUME_OI_RATIO and
