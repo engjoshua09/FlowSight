@@ -59,6 +59,29 @@ def get_spot_price(ticker: str) -> float:
         logger.warning("yfinance failed for %s: %s", ticker, exc)
         return 0.0
 
+def get_historical_volumes(ticker: str) -> list[float]:
+    """
+    Fetch 30 days of daily stock volume from yfinance.
+    Used as the baseline for UOA z-score calculation.
+    All contracts for the same ticker share this baseline — fetched once per request, stored in cache.
+    Returns empty list on failure; score_contracts handles fallback.
+    """
+    try:
+        hist = yf.Ticker(ticker).history(period="30d")
+        if hist.empty:
+            logger.warning("yfinance returned empty history for %s", ticker)
+            return []
+        volumes = hist["Volume"].dropna().tolist()
+        logger.info(
+            "Fetched %d days of volume history for %s (mean: %.0f)",
+            len(volumes),
+            ticker,
+            sum(volumes) / len(volumes) if volumes else 0,
+        )
+        return volumes
+    except Exception as exc:
+        logger.warning("yfinance history failed for %s: %s", ticker, exc)
+        return []
 
 def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
@@ -168,9 +191,10 @@ async def get_options(
     from_snapshot = False
 
     if cache_hit:
-        contracts_raw = cached["contracts"]
-        spot = cached["spot_price"]
-        expirations = cached.get("expirations", [])
+        contracts_raw      = cached["contracts"]
+        spot               = cached["spot_price"]
+        expirations        = cached.get("expirations", [])
+        historical_volumes = cached.get("historical_volumes", [])  
     else:
         try:
             contracts_raw, expirations = await asyncio.to_thread(
@@ -179,15 +203,19 @@ async def get_options(
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Tradier error: {exc}")
 
-        spot = await asyncio.to_thread(get_spot_price, ticker)
+        spot               = await asyncio.to_thread(get_spot_price, ticker)
+        historical_volumes = await asyncio.to_thread(               
+            get_historical_volumes, ticker
+        )
 
         if not contracts_raw:
             snapshot = await cache_get(snap_key)
             if snapshot is not None and not market_open:
-                contracts_raw = snapshot["contracts"]
-                spot = snapshot["spot_price"]
-                expirations = snapshot.get("expirations", [])
-                from_snapshot = True
+                contracts_raw      = snapshot["contracts"]
+                spot               = snapshot["spot_price"]
+                expirations        = snapshot.get("expirations", [])
+                historical_volumes = snapshot.get("historical_volumes", [])  
+                from_snapshot      = True
             else:
                 raise HTTPException(
                     status_code=404, detail=f"No options found for {ticker}"
@@ -195,21 +223,21 @@ async def get_options(
 
         if not from_snapshot:
             await cache_set(raw_key, {
-                "contracts": contracts_raw,
-                "spot_price": spot,
-                "expirations": expirations,
+                "contracts":          contracts_raw,
+                "spot_price":         spot,
+                "expirations":        expirations,
+                "historical_volumes": historical_volumes,           
             })
-            # Chain-size guard: don't let a thin/broken response get
-            # trusted as a 100-hour fallback snapshot.
             if market_open and len(contracts_raw) > 10:
                 await cache_set(snap_key, {
-                    "contracts": contracts_raw,
-                    "spot_price": spot,
-                    "expirations": expirations,
+                    "contracts":          contracts_raw,
+                    "spot_price":         spot,
+                    "expirations":        expirations,
+                    "historical_volumes": historical_volumes,       
                 }, ttl=SNAPSHOT_TTL_SECONDS)
 
     enriched = enrich_with_greeks(contracts_raw, spot)
-    scored = score_contracts(enriched, spot, max_moneyness)
+    scored = score_contracts(enriched, spot, max_moneyness, historical_volumes)
     bias = compute_call_put_ratio(enriched)
 
     return {
