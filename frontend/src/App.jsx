@@ -224,6 +224,48 @@ export default function App() {
             <Stat label="🚨 Flagged"     value={flagged.length}                     color="#f59e0b" />
           </div>
 
+          {/* After-hours / empty state banner */}
+          {data && allContracts.length === 0 && (
+            <div style={{
+              padding: "1.5rem", marginBottom: "1rem",
+              background: "#1a1a1a", border: "1px solid #333",
+              borderRadius: "8px", textAlign: "center"
+            }}>
+              {data.market_open === false ? (
+                <>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🌙</div>
+                  <div style={{ color: "#888", fontSize: "1rem", marginBottom: "0.25rem" }}>
+                    Market is currently closed
+                  </div>
+                  <div style={{ color: "#555", fontSize: "0.85rem" }}>
+                    US markets open Monday–Friday, 9:30am–4:00pm ET
+                    (9:30pm–4:00am SGT). No snapshot available yet for {data.ticker} —
+                    search during market hours to cache data for after-hours viewing.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
+                  <div style={{ color: "#888", fontSize: "1rem" }}>
+                    No contracts found for {data.ticker}. Try refreshing or check the ticker.
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Snapshot banner — shown when serving cached market-hours data */}
+          {data && data.from_snapshot && allContracts.length > 0 && (
+            <div style={{
+              padding: "0.6rem 1rem", marginBottom: "1rem",
+              background: "#1a1a2a", border: "1px solid #a78bfa",
+              borderRadius: "6px", color: "#a78bfa", fontSize: "0.82rem"
+            }}>
+              📸 Showing last market-hours snapshot — market is currently closed.
+              Data was captured during today's trading session.
+            </div>
+          )}
+
           {/* Tabs */}
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
             <Tab label={`📊 Full Chain (${allContracts.length})`} id="chain"  active={activeTab} onClick={setActiveTab} />
