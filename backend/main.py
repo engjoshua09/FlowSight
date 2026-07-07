@@ -9,6 +9,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import yfinance as yf
 from fastapi import FastAPI, HTTPException, Query
@@ -22,6 +23,8 @@ from cache import (
     close_cache,
     init_cache,
     options_chain_key,
+    snapshot_key,
+    SNAPSHOT_TTL_SECONDS,
 )
 from greeks import compute_greeks
 from tradier import get_options_chain
@@ -31,6 +34,22 @@ logger = logging.getLogger(__name__)
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 RISK_FREE_RATE = float(os.getenv("RISK_FREE_RATE", "0.053"))
+
+ET = ZoneInfo("America/New_York")
+
+
+def is_market_open(now: datetime.datetime | None = None) -> bool:
+    """
+    Rough US equity market hours check: 9:30am-4:00pm ET, Mon-Fri.
+    Does not account for market holidays. Accepts an optional `now`
+    so this stays testable without patching the system clock.
+    """
+    now = now or datetime.datetime.now(ET)
+    if now.weekday() >= 5:
+        return False
+    open_t = datetime.time(9, 30)
+    close_t = datetime.time(16, 0)
+    return open_t <= now.time() <= close_t
 
 
 def get_spot_price(ticker: str) -> float:
@@ -62,8 +81,7 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
         option_type = c.get("option_type", "call")
         T = dte_to_years(c.get("expiration_date", ""))
 
-        # Try all possible IV field names Tradier uses
-        greeks_data = c.get("greeks") or {}   # In case of null values
+        greeks_data = c.get("greeks") or {}
         sigma = (
             greeks_data.get("mid_iv")
             or c.get("smv_vol")
@@ -71,7 +89,6 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
             or 0.3
         )
 
-        # Ensure sigma is valid
         try:
             sigma = float(sigma)
             if sigma <= 0 or sigma > 5:
@@ -85,7 +102,6 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
                 spot, strike, T, RISK_FREE_RATE, sigma, option_type
             )
 
-        # Normalise field names for frontend and ensure bid/ask are present
         enriched.append({
             **c,
             "type": c.get("option_type", ""),
@@ -136,12 +152,20 @@ async def get_options(
     Returns Greeks + UOA scores for all contracts on the selected expiry.
     max_moneyness controls how far OTM/ITM contracts are included (0.05 to 1.0).
     Default is 0.30 (30% from spot).
+
+    A Tradier request that raises an exception is a 502 (upstream failure).
+    A Tradier request that succeeds but returns zero contracts is a 404,
+    unless a market-hours snapshot exists to fall back to — in which case
+    the snapshot is served instead of a hard error.
     """
     ticker = ticker.upper()
+    market_open = is_market_open()
     raw_key = options_chain_key(ticker) + (f":{expiration}" if expiration else "")
+    snap_key = snapshot_key(ticker)
 
     cached = await cache_get(raw_key)
     cache_hit = cached is not None
+    from_snapshot = False
 
     if cache_hit:
         contracts_raw = cached["contracts"]
@@ -158,13 +182,31 @@ async def get_options(
         spot = await asyncio.to_thread(get_spot_price, ticker)
 
         if not contracts_raw:
-            raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
+            snapshot = await cache_get(snap_key)
+            if snapshot is not None and not market_open:
+                contracts_raw = snapshot["contracts"]
+                spot = snapshot["spot_price"]
+                expirations = snapshot.get("expirations", [])
+                from_snapshot = True
+            else:
+                raise HTTPException(
+                    status_code=404, detail=f"No options found for {ticker}"
+                )
 
-        await cache_set(raw_key, {
-            "contracts": contracts_raw,
-            "spot_price": spot,
-            "expirations": expirations,
-        })
+        if not from_snapshot:
+            await cache_set(raw_key, {
+                "contracts": contracts_raw,
+                "spot_price": spot,
+                "expirations": expirations,
+            })
+            # Chain-size guard: don't let a thin/broken response get
+            # trusted as a 100-hour fallback snapshot.
+            if market_open and len(contracts_raw) > 10:
+                await cache_set(snap_key, {
+                    "contracts": contracts_raw,
+                    "spot_price": spot,
+                    "expirations": expirations,
+                }, ttl=SNAPSHOT_TTL_SECONDS)
 
     enriched = enrich_with_greeks(contracts_raw, spot)
     scored = score_contracts(enriched, spot, max_moneyness)
@@ -179,6 +221,8 @@ async def get_options(
         "call_volume": bias["call_volume"],
         "put_volume": bias["put_volume"],
         "cache_hit": cache_hit,
+        "market_open": market_open,
+        "from_snapshot": from_snapshot,
         "contracts": scored,
     }
 
