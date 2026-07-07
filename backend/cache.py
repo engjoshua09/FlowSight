@@ -142,3 +142,9 @@ def cached(key_fn, ttl: int = CACHE_TTL_SECONDS):
             return result
         return wrapper
     return decorator
+
+SNAPSHOT_TTL_SECONDS = int(os.getenv("SNAPSHOT_TTL_SECONDS", 60 * 60 * 100))  # ~4 days
+
+def snapshot_key(ticker: str) -> str:
+    """Cache key for the last full snapshot captured during market hours."""
+    return f"flowsight:snapshot:{ticker.upper()}"
