@@ -12,7 +12,6 @@ MIN_ZSCORE = 2.0
 MAX_DTE = 30
 MIN_ABSOLUTE_VOLUME = 100
 MIN_OI = 10
-# MAX_MONEYNESS removed — now passed in as a parameter from the frontend slider
 
 def compute_dte(expiration_date: str) -> int:
     try:
@@ -23,16 +22,30 @@ def compute_dte(expiration_date: str) -> int:
         return 999
 
 def compute_zscore(volume: float, historical_volumes: list) -> float:
+    """
+    Z-score of today's contract volume against a scaled 30-day stock volume baseline.
+
+    Stock daily volume (tens of millions) and options contract volume (thousands)
+    operate on different scales. We normalise the stock volume baseline by dividing
+    by 1000 so the mean of the baseline approximates typical options volume magnitude.
+    The relative shape of the distribution (std/mean ratio) is fully preserved —
+    only the absolute scale changes, so the z-score remains statistically valid.
+    """
     if len(historical_volumes) < 5:
         return 0.0
 
-    mean = np.mean(historical_volumes)
-    std = np.std(historical_volumes)
+    mean = float(np.mean(historical_volumes))
+    std  = float(np.std(historical_volumes))
 
-    if std == 0:
+    if mean == 0 or std == 0:
         return 0.0
 
-    return float((volume - mean) / std)
+    # Divide baseline by 1000: brings stock volume (60M/day) down to
+    # the same order of magnitude as options contract volume (60K/day).
+    normalised_mean = mean / 1000
+    normalised_std  = std  / 1000
+
+    return float((volume - normalised_mean) / normalised_std)
 
 def compute_volume_oi_ratio(volume: float, open_interest: float) -> float:
     if open_interest <= 0:
@@ -75,26 +88,21 @@ def score_contracts(
     contracts: list,
     spot: float = 0,
     max_moneyness: float = 0.30,
-    historical_volumes: list = None,      
+    historical_volumes: list = None,
 ) -> list:
     scored = []
 
     for c in contracts:
-        volume = c.get("volume") or 0
+        volume        = c.get("volume") or 0
         open_interest = c.get("open_interest") or 0
-        expiration = c.get("expiration_date", "")
-        option_type = c.get("option_type", "")
-        strike = c.get("strike") or 0
+        expiration    = c.get("expiration_date", "")
+        option_type   = c.get("option_type", "")
+        strike        = c.get("strike") or 0
 
-        # skip low absolute volume 
         if volume < MIN_ABSOLUTE_VOLUME:
             continue
-
-        # skip illiquid contracts
         if open_interest < MIN_OI:
             continue
-
-        # skip strikes outside user-selected moneyness range
         if spot > 0 and strike > 0:
             moneyness = abs(strike - spot) / spot
             if moneyness > max_moneyness:
@@ -102,7 +110,6 @@ def score_contracts(
 
         dte = compute_dte(expiration)
 
-        # Use real 30-day history if provided, else fall back to simulation
         if historical_volumes and len(historical_volumes) >= 5:
             hist = historical_volumes
         else:
@@ -112,9 +119,9 @@ def score_contracts(
             )
             hist = simulate_historical_volumes(volume)
 
-        uoa_score = compute_uoa_score(volume, open_interest, hist)
+        uoa_score    = compute_uoa_score(volume, open_interest, hist)
         vol_oi_ratio = compute_volume_oi_ratio(volume, open_interest)
-        zscore = compute_zscore(volume, hist)
+        zscore       = compute_zscore(volume, hist)
 
         is_flagged = (
             uoa_score > MIN_VOLUME_OI_RATIO and
@@ -125,11 +132,11 @@ def score_contracts(
 
         scored.append({
             **c,
-            "dte": dte,
-            "volume_oi_ratio": round(vol_oi_ratio, 4),
-            "volume_zscore": round(zscore, 4),
-            "uoa_score": uoa_score,
-            "is_flagged": is_flagged,
+            "dte":              dte,
+            "volume_oi_ratio":  round(vol_oi_ratio, 4),
+            "volume_zscore":    round(zscore, 4),
+            "uoa_score":        uoa_score,
+            "is_flagged":       is_flagged,
             "disclaimer": (
                 "⚠ Elevated activity detected. May reflect directional "
                 "positioning, hedging, or spread construction. "
@@ -144,10 +151,9 @@ def score_contracts(
 def simulate_historical_volumes(current_volume: float) -> list:
     if current_volume == 0:
         return [0] * 30
-
     np.random.seed(42)
-    mean = current_volume * 0.4
-    std = mean * 0.3
+    mean    = current_volume * 0.4
+    std     = mean * 0.3
     history = np.random.normal(mean, std, 30)
     history = np.clip(history, 0, None)
     return history.tolist()
