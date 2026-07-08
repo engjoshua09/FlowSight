@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Flagging thresholds
-MIN_VOLUME_OI_RATIO = 10.0
+MIN_VOLUME_OI_RATIO_DISPLAY = 10.0 #not used in scoring, only for display
 MIN_UOA_SCORE = 3.0
 MIN_ZSCORE = 2.0
 MAX_DTE = 30
@@ -124,7 +124,6 @@ def score_contracts(
         zscore       = compute_zscore(volume, hist)
 
         is_flagged = (
-            uoa_score > MIN_VOLUME_OI_RATIO and
             uoa_score >= MIN_UOA_SCORE and
             dte <= MAX_DTE and
             volume > 0
