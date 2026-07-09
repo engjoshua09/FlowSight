@@ -27,6 +27,13 @@ const POPULAR_TICKERS = [
   { symbol: "MU",    name: "Micron" },
 ];
 
+function formatNotionalShort(value) {
+  if (!value) return "$0";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
 export default function App() {
   const [ticker, setTicker]               = useState("");
   const [data, setData]                   = useState(null);
@@ -161,6 +168,37 @@ export default function App() {
   const flagged     = allContracts.filter(c => c.is_flagged);
   const flaggedCalls = flagged.filter(c => c.type === "call").length;
   const flaggedPuts  = flagged.filter(c => c.type === "put").length;
+
+  // Notional-weighted skew, not raw contract counts — a 12/11 split by count
+  // can hide a lopsided dollar split, and vice versa.
+  const flaggedCallNotional = flagged
+    .filter(c => c.type === "call")
+    .reduce((sum, c) => sum + (c.notional_value || 0), 0);
+  const flaggedPutNotional = flagged
+    .filter(c => c.type === "put")
+    .reduce((sum, c) => sum + (c.notional_value || 0), 0);
+  const totalFlaggedNotional = flaggedCallNotional + flaggedPutNotional;
+  const notionalDiffRatio = totalFlaggedNotional > 0
+    ? Math.abs(flaggedCallNotional - flaggedPutNotional) / totalFlaggedNotional
+    : 0;
+  // Within 15% of the total, call it balanced rather than declaring a side —
+  // avoids overclaiming on near-ties the way a raw > comparison would.
+  const notionalSkew = notionalDiffRatio < 0.15
+    ? "balanced"
+    : flaggedCallNotional > flaggedPutNotional ? "call-heavy" : "put-heavy";
+
+  let skewNote = "";
+  if (data?.implied_bias) {
+    if (notionalSkew === "balanced") {
+      skewNote = `roughly balanced by dollar value, despite today's ${data.implied_bias} chain-wide bias.`;
+    } else {
+      const agrees =
+        (notionalSkew === "call-heavy" && data.implied_bias === "bullish") ||
+        (notionalSkew === "put-heavy" && data.implied_bias === "bearish");
+      skewNote = `${notionalSkew} by dollar value, ${agrees ? "consistent with" : "diverging from"} today's ${data.implied_bias} chain-wide bias.`;
+    }
+  }
+
   const biasColor   = data?.implied_bias === "bullish" ? "#00d4aa"
     : data?.implied_bias === "bearish" ? "#ff6b6b" : "#888";
 
@@ -271,7 +309,7 @@ export default function App() {
           {/* Tabs */}
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
             <Tab label={`📊 Full Chain (${allContracts.length})`} id="chain"  active={activeTab} onClick={setActiveTab} />
-            <Tab label={`🚨 UOA Signals (${flagged.length})`}     id="uoa"    active={activeTab} onClick={setActiveTab} />
+            <Tab label={`🚨 UOA Signals (${flagged.length})${selectedExpiry ? ` — ${selectedExpiry}` : ""}`}     id="uoa"    active={activeTab} onClick={setActiveTab} />
             <Tab label="⚙ Greeks Calc"                            id="greeks" active={activeTab} onClick={setActiveTab} />
           </div>
 
@@ -321,6 +359,9 @@ export default function App() {
                   <p style={{ color: "#555" }}>
                     ⚠ High UOA does not confirm directional intent. Activity may reflect hedging, spread construction, or position rolling.
                   </p>
+                  <p style={{ color: "#555", marginTop: "0.5rem" }}>
+                    ℹ These signals reflect only the {selectedExpiry || "selected"} expiry currently chosen above. Switch expiries to see how unusual activity differs across timeframes — signals concentrated in a single near-dated expiry often reflect hedging rather than sustained positioning.
+                  </p>
                 </div>
               </details>
 
@@ -329,25 +370,14 @@ export default function App() {
                 ⚠ Elevated activity may reflect directional positioning, hedging, or spread construction. These are signals for further research — not trading recommendations.
               </div>
 
-              {/* Flagged-set skew summary */}
+              {/* Flagged-set skew summary — notional-weighted, not raw contract counts */}
               {flagged.length > 0 && (
                 <div style={{ padding: "0.6rem 1rem", marginBottom: "1rem", background: "#111", border: "1px solid #2a2a2a", borderRadius: "6px", fontSize: "0.85rem" }}>
                   <strong style={{ color: "#f59e0b" }}>{flagged.length} flagged:</strong>{" "}
-                  <span style={{ color: "#00d4aa" }}>{flaggedCalls} calls</span>
+                  <span style={{ color: "#00d4aa" }}>{flaggedCalls} calls ({formatNotionalShort(flaggedCallNotional)})</span>
                   {" / "}
-                  <span style={{ color: "#ff6b6b" }}>{flaggedPuts} puts</span>
-                  {data.implied_bias && (
-                    <span style={{ color: "#666" }}>
-                      {" — "}
-                      {flaggedCalls > flaggedPuts ? "call-heavy" : flaggedPuts > flaggedCalls ? "put-heavy" : "balanced"}
-                      {", "}
-                      {((flaggedCalls > flaggedPuts && data.implied_bias === "bullish") ||
-                        (flaggedPuts > flaggedCalls && data.implied_bias === "bearish"))
-                        ? "consistent with"
-                        : "diverging from"}
-                      {" today's "}{data.implied_bias}{" chain-wide bias."}
-                    </span>
-                  )}
+                  <span style={{ color: "#ff6b6b" }}>{flaggedPuts} puts ({formatNotionalShort(flaggedPutNotional)})</span>
+                  {skewNote && <span style={{ color: "#666" }}> — {skewNote}</span>}
                 </div>
               )}
 
