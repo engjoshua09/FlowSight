@@ -10,7 +10,7 @@ MIN_UOA_SCORE = 3.0
 MIN_ZSCORE = 2.0
 MAX_DTE = 30
 MIN_ABSOLUTE_VOLUME = 100
-MIN_OI = 10
+MIN_OI = 50
 
 
 def compute_dte(expiration_date: str) -> int:
@@ -117,11 +117,16 @@ def score_contracts(
             if moneyness > max_moneyness:
                 continue
 
-        dte = compute_dte(expiration)
+            dte = compute_dte(expiration)
 
         uoa_score = compute_uoa_score(volume, open_interest, population_volumes)
         vol_oi_ratio = compute_volume_oi_ratio(volume, open_interest)
         zscore = compute_zscore(volume, population_volumes)
+
+        bid = c.get("bid") or 0
+        ask = c.get("ask") or 0
+        mid_price = (bid + ask) / 2 if bid > 0 and ask > 0 else 0
+        notional_value = round(volume * mid_price * 100, 2)  # 100 = contract multiplier
 
         is_flagged = (
             uoa_score >= MIN_UOA_SCORE and
@@ -135,6 +140,7 @@ def score_contracts(
             "volume_oi_ratio": round(vol_oi_ratio, 4),
             "volume_zscore": round(zscore, 4),
             "uoa_score": uoa_score,
+            "notional_value": notional_value,
             "is_flagged": is_flagged,
             "disclaimer": (
                 "⚠ Elevated activity relative to other contracts in this "
@@ -143,6 +149,8 @@ def score_contracts(
                 if is_flagged else None
             )
         })
+
+       
 
     scored.sort(key=lambda x: x["uoa_score"], reverse=True)
     return scored

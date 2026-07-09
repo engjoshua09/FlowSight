@@ -4,6 +4,13 @@ import {
 } from "@tanstack/react-table";
 import { useState } from "react";
 
+function formatNotional(value) {
+  if (!value) return "$0";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
 const COLUMNS = [
   { accessorKey: "strike",         header: "Strike",     sortingFn: "basic" },
   { accessorKey: "type",           header: "Type" },
@@ -12,6 +19,8 @@ const COLUMNS = [
   { accessorKey: "open_interest",  header: "OI",         sortingFn: "basic" },
   { accessorKey: "volume_oi_ratio",header: "Vol/OI",     sortingFn: "basic" },
   { accessorKey: "volume_zscore",  header: "Z-Score",    sortingFn: "basic" },
+  { accessorKey: "notional_value", header: "Notional $", sortingFn: "basic",
+    cell: info => formatNotional(info.getValue()) },
   { accessorKey: "uoa_score",      header: "UOA Score",  sortingFn: "basic" },
 ];
 

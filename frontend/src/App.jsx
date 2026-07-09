@@ -159,6 +159,8 @@ export default function App() {
 
   const sortedChain = sortAroundSpot(filtered);
   const flagged     = allContracts.filter(c => c.is_flagged);
+  const flaggedCalls = flagged.filter(c => c.type === "call").length;
+  const flaggedPuts  = flagged.filter(c => c.type === "put").length;
   const biasColor   = data?.implied_bias === "bullish" ? "#00d4aa"
     : data?.implied_bias === "bearish" ? "#ff6b6b" : "#888";
 
@@ -314,7 +316,7 @@ export default function App() {
                     <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard deviations above the 30-day average today's volume is. A Z-score above 2.0 means today's volume is statistically unusual.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3, volume {">"} 100, and DTE ≤ 30 days.
+                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3, volume {">"} 100, open interest {">"} 50, and DTE ≤ 30 days.
                   </p>
                   <p style={{ color: "#555" }}>
                     ⚠ High UOA does not confirm directional intent. Activity may reflect hedging, spread construction, or position rolling.
@@ -326,6 +328,28 @@ export default function App() {
               <div style={{ padding: "0.75rem 1rem", marginBottom: "1rem", background: "#1a1a0a", border: "1px solid #f59e0b", borderRadius: "6px", color: "#f59e0b", fontSize: "0.85rem" }}>
                 ⚠ Elevated activity may reflect directional positioning, hedging, or spread construction. These are signals for further research — not trading recommendations.
               </div>
+
+              {/* Flagged-set skew summary */}
+              {flagged.length > 0 && (
+                <div style={{ padding: "0.6rem 1rem", marginBottom: "1rem", background: "#111", border: "1px solid #2a2a2a", borderRadius: "6px", fontSize: "0.85rem" }}>
+                  <strong style={{ color: "#f59e0b" }}>{flagged.length} flagged:</strong>{" "}
+                  <span style={{ color: "#00d4aa" }}>{flaggedCalls} calls</span>
+                  {" / "}
+                  <span style={{ color: "#ff6b6b" }}>{flaggedPuts} puts</span>
+                  {data.implied_bias && (
+                    <span style={{ color: "#666" }}>
+                      {" — "}
+                      {flaggedCalls > flaggedPuts ? "call-heavy" : flaggedPuts > flaggedCalls ? "put-heavy" : "balanced"}
+                      {", "}
+                      {((flaggedCalls > flaggedPuts && data.implied_bias === "bullish") ||
+                        (flaggedPuts > flaggedCalls && data.implied_bias === "bearish"))
+                        ? "consistent with"
+                        : "diverging from"}
+                      {" today's "}{data.implied_bias}{" chain-wide bias."}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* OTM Range slider — commented out, to be re-enabled in M3 with real historical data
               <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem", padding: "0.75rem 1rem", background: "#1a1a1a", borderRadius: "6px", border: "1px solid #2a2a2a" }}>
