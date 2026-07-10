@@ -164,6 +164,34 @@ FlowSight/
 
 ---
 
+## Code Style
+
+### Backend (Python)
+Formatted with [Black](https://black.readthedocs.io/) and linted with 
+[Ruff](https://docs.astral.sh/ruff/). Both run automatically in CI on 
+every push and pull request to main.
+
+To run locally:
+```bash
+cd backend
+source venv/bin/activate
+black .
+ruff check .
+```
+
+### Frontend (JavaScript/React)
+Formatted with [Prettier](https://prettier.io/) and linted with 
+[ESLint](https://eslint.org/). Both run automatically in CI.
+
+To run locally:
+```bash
+cd frontend
+npm run format
+npm run lint
+```
+
+---
+
 ## 👥 Team
 
 **Net Positive — NUS Orbital 2026 (Apollo 11)**

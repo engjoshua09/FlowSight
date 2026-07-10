@@ -16,7 +16,9 @@ MIN_OI = 50
 def compute_dte(expiration_date: str) -> int:
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = datetime.datetime.today().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         return max((exp - today).days, 0)
     except Exception:
         return 999
@@ -55,7 +57,9 @@ def compute_volume_oi_ratio(volume: float, open_interest: float) -> float:
     return float(volume / open_interest)
 
 
-def compute_uoa_score(volume: float, open_interest: float, population_volumes: list) -> float:
+def compute_uoa_score(
+    volume: float, open_interest: float, population_volumes: list
+) -> float:
     ratio = compute_volume_oi_ratio(volume, open_interest)
     zscore = compute_zscore(volume, population_volumes)
     zscore = max(zscore, 0.0)
@@ -64,12 +68,10 @@ def compute_uoa_score(volume: float, open_interest: float, population_volumes: l
 
 def compute_call_put_ratio(contracts: list) -> dict:
     call_volume = sum(
-        c.get("volume", 0) for c in contracts
-        if c.get("option_type") == "call"
+        c.get("volume", 0) for c in contracts if c.get("option_type") == "call"
     )
     put_volume = sum(
-        c.get("volume", 0) for c in contracts
-        if c.get("option_type") == "put"
+        c.get("volume", 0) for c in contracts if c.get("option_type") == "put"
     )
 
     if put_volume == 0:
@@ -82,10 +84,10 @@ def compute_call_put_ratio(contracts: list) -> dict:
         "put_volume": put_volume,
         "call_put_ratio": ratio,
         "implied_bias": (
-            "bullish" if ratio and ratio > 1.2
-            else "bearish" if ratio and ratio < 0.8
-            else "neutral"
-        )
+            "bullish"
+            if ratio and ratio > 1.2
+            else "bearish" if ratio and ratio < 0.8 else "neutral"
+        ),
     }
 
 
@@ -105,7 +107,7 @@ def score_contracts(
         volume = c.get("volume") or 0
         open_interest = c.get("open_interest") or 0
         expiration = c.get("expiration_date", "")
-        option_type = c.get("option_type", "")
+        # option_type = c.get("option_type", "")
         strike = c.get("strike") or 0
 
         if volume < MIN_ABSOLUTE_VOLUME:
@@ -128,29 +130,26 @@ def score_contracts(
         mid_price = (bid + ask) / 2 if bid > 0 and ask > 0 else 0
         notional_value = round(volume * mid_price * 100, 2)  # 100 = contract multiplier
 
-        is_flagged = (
-            uoa_score >= MIN_UOA_SCORE and
-            dte <= MAX_DTE and
-            volume > 0
+        is_flagged = uoa_score >= MIN_UOA_SCORE and dte <= MAX_DTE and volume > 0
+
+        scored.append(
+            {
+                **c,
+                "dte": dte,
+                "volume_oi_ratio": round(vol_oi_ratio, 4),
+                "volume_zscore": round(zscore, 4),
+                "uoa_score": uoa_score,
+                "notional_value": notional_value,
+                "is_flagged": is_flagged,
+                "disclaimer": (
+                    "⚠ Elevated activity relative to other contracts in this "
+                    "chain today. May reflect directional positioning, hedging, "
+                    "or spread construction. Not a directional prediction."
+                    if is_flagged
+                    else None
+                ),
+            }
         )
-
-        scored.append({
-            **c,
-            "dte": dte,
-            "volume_oi_ratio": round(vol_oi_ratio, 4),
-            "volume_zscore": round(zscore, 4),
-            "uoa_score": uoa_score,
-            "notional_value": notional_value,
-            "is_flagged": is_flagged,
-            "disclaimer": (
-                "⚠ Elevated activity relative to other contracts in this "
-                "chain today. May reflect directional positioning, hedging, "
-                "or spread construction. Not a directional prediction."
-                if is_flagged else None
-            )
-        })
-
-       
 
     scored.sort(key=lambda x: x["uoa_score"], reverse=True)
     return scored

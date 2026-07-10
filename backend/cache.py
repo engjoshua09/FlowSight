@@ -21,7 +21,7 @@ import redis.asyncio as aioredis
 
 logger = logging.getLogger(__name__)
 
-CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", 300))   # 5 min default
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", 300))  # 5 min default
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # Module-level client — created once on startup, reused across requests.
@@ -41,7 +41,7 @@ async def init_cache() -> None:
             REDIS_URL,
             encoding="utf-8",
             decode_responses=True,
-            socket_connect_timeout=2,   # fail fast if Redis is down
+            socket_connect_timeout=2,  # fail fast if Redis is down
         )
         await client.ping()
         _redis = client
@@ -61,6 +61,7 @@ async def close_cache() -> None:
 
 
 # ─── Low-level get/set/delete ────────────────────────────────────────────────
+
 
 async def cache_get(key: str) -> Any | None:
     """
@@ -103,6 +104,7 @@ async def cache_delete(key: str) -> None:
 
 # ─── Convenience: cache key builders ─────────────────────────────────────────
 
+
 def options_chain_key(ticker: str) -> str:
     """Canonical cache key for a ticker's raw options chain."""
     return f"flowsight:options_chain:{ticker.upper()}"
@@ -114,6 +116,7 @@ def uoa_key(ticker: str) -> str:
 
 
 # ─── Cache-aside decorator (optional, for future use) ────────────────────────
+
 
 def cached(key_fn, ttl: int = CACHE_TTL_SECONDS):
     """
@@ -127,6 +130,7 @@ def cached(key_fn, ttl: int = CACHE_TTL_SECONDS):
     The decorated function is only called on a cache miss.
     The return value must be JSON-serialisable.
     """
+
     def decorator(fn):
         @wraps(fn)
         async def wrapper(*args, **kwargs):
@@ -140,10 +144,14 @@ def cached(key_fn, ttl: int = CACHE_TTL_SECONDS):
             if result is not None:
                 await cache_set(key, result, ttl)
             return result
+
         return wrapper
+
     return decorator
 
+
 SNAPSHOT_TTL_SECONDS = int(os.getenv("SNAPSHOT_TTL_SECONDS", 60 * 60 * 100))  # ~4 days
+
 
 def snapshot_key(ticker: str) -> str:
     """Cache key for the last full snapshot captured during market hours."""

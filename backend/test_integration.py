@@ -48,10 +48,13 @@ MOCK_EXPIRATIONS = ["2026-09-19", "2026-10-17", "2026-11-21"]
 @pytest.fixture(autouse=True)
 def mock_tradier_and_yfinance():
     # get_options_chain now returns (contracts, expirations) tuple
-    with patch("main.get_options_chain", return_value=(MOCK_CONTRACTS, MOCK_EXPIRATIONS)), \
-         patch("main.get_spot_price", return_value=MOCK_SPOT), \
-         patch("main.cache_get", return_value=None), \
-         patch("main.cache_set", return_value=None):
+    with patch(
+        "main.get_options_chain", return_value=(MOCK_CONTRACTS, MOCK_EXPIRATIONS)
+    ), patch("main.get_spot_price", return_value=MOCK_SPOT), patch(
+        "main.cache_get", return_value=None
+    ), patch(
+        "main.cache_set", return_value=None
+    ):
         yield
 
 

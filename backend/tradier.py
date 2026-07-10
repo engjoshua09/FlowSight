@@ -13,6 +13,7 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+
 def get_options_chain(ticker: str, expiration: str = None):
     """
     Returns (contracts, expirations) tuple.
@@ -23,7 +24,7 @@ def get_options_chain(ticker: str, expiration: str = None):
     exp_resp = requests.get(
         f"{BASE_URL}/markets/options/expirations",
         headers=HEADERS,
-        params={"symbol": ticker}
+        params={"symbol": ticker},
     )
     exp_resp.raise_for_status()
     expirations = exp_resp.json().get("expirations", {}).get("date", [])
@@ -43,7 +44,7 @@ def get_options_chain(ticker: str, expiration: str = None):
     chain_resp = requests.get(
         f"{BASE_URL}/markets/options/chains",
         headers=HEADERS,
-        params={"symbol": ticker, "expiration": selected_expiry, "greeks": "true"}
+        params={"symbol": ticker, "expiration": selected_expiry, "greeks": "true"},
     )
     chain_resp.raise_for_status()
 

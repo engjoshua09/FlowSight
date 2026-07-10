@@ -98,18 +98,18 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
 
         greeks = {}
         if spot > 0 and strike > 0:
-            greeks = compute_greeks(
-                spot, strike, T, RISK_FREE_RATE, sigma, option_type
-            )
+            greeks = compute_greeks(spot, strike, T, RISK_FREE_RATE, sigma, option_type)
 
-        enriched.append({
-            **c,
-            "type": c.get("option_type", ""),
-            "iv": round(sigma, 4),
-            "bid": c.get("bid") or 0,
-            "ask": c.get("ask") or 0,
-            **greeks
-        })
+        enriched.append(
+            {
+                **c,
+                "type": c.get("option_type", ""),
+                "iv": round(sigma, 4),
+                "bid": c.get("bid") or 0,
+                "ask": c.get("ask") or 0,
+                **greeks,
+            }
+        )
     return enriched
 
 
@@ -198,17 +198,24 @@ async def get_options(
                 )
 
         if not from_snapshot:
-            await cache_set(raw_key, {
-                "contracts": contracts_raw,
-                "spot_price": spot,
-                "expirations": expirations,
-            })
-            if market_open and len(contracts_raw) > 10:
-                await cache_set(snap_key, {
+            await cache_set(
+                raw_key,
+                {
                     "contracts": contracts_raw,
                     "spot_price": spot,
                     "expirations": expirations,
-                }, ttl=SNAPSHOT_TTL_SECONDS)
+                },
+            )
+            if market_open and len(contracts_raw) > 10:
+                await cache_set(
+                    snap_key,
+                    {
+                        "contracts": contracts_raw,
+                        "spot_price": spot,
+                        "expirations": expirations,
+                    },
+                    ttl=SNAPSHOT_TTL_SECONDS,
+                )
 
     enriched = enrich_with_greeks(contracts_raw, spot)
     scored = score_contracts(enriched, spot, max_moneyness)
