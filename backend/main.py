@@ -64,9 +64,7 @@ def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        today = datetime.datetime.today().replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
         days = max((exp - today).days, 0)
         return max(days / 365, 1e-4)
     except Exception:
@@ -82,12 +80,7 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
         T = dte_to_years(c.get("expiration_date", ""))
 
         greeks_data = c.get("greeks") or {}
-        sigma = (
-            greeks_data.get("mid_iv")
-            or c.get("smv_vol")
-            or c.get("implied_volatility")
-            or 0.3
-        )
+        sigma = greeks_data.get("mid_iv") or c.get("smv_vol") or c.get("implied_volatility") or 0.3
 
         try:
             sigma = float(sigma)
@@ -193,9 +186,7 @@ async def get_options(
                 expirations = snapshot.get("expirations", [])
                 from_snapshot = True
             else:
-                raise HTTPException(
-                    status_code=404, detail=f"No options found for {ticker}"
-                )
+                raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
 
         if not from_snapshot:
             await cache_set(

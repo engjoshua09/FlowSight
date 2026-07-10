@@ -59,9 +59,7 @@ def test_deep_itm_call_delta_near_one():
         sigma=SIGMA,
         option_type="call",
     )
-    assert (
-        result["delta"] > 0.95
-    ), f"Deep ITM call delta should be > 0.95, got {result['delta']}"
+    assert result["delta"] > 0.95, f"Deep ITM call delta should be > 0.95, got {result['delta']}"
 
 
 def test_deep_otm_call_delta_near_zero():
@@ -77,9 +75,7 @@ def test_deep_otm_call_delta_near_zero():
         sigma=SIGMA,
         option_type="call",
     )
-    assert (
-        result["delta"] < 0.05
-    ), f"Deep OTM call delta should be < 0.05, got {result['delta']}"
+    assert result["delta"] < 0.05, f"Deep OTM call delta should be < 0.05, got {result['delta']}"
 
 
 def test_gamma_always_positive():
@@ -89,12 +85,8 @@ def test_gamma_always_positive():
     """
     call_result = compute_greeks(S=S, K=K, T=T, r=r, sigma=SIGMA, option_type="call")
     put_result = compute_greeks(S=S, K=K, T=T, r=r, sigma=SIGMA, option_type="put")
-    assert (
-        call_result["gamma"] > 0
-    ), f"Call gamma must be positive, got {call_result['gamma']}"
-    assert (
-        put_result["gamma"] > 0
-    ), f"Put gamma must be positive, got {put_result['gamma']}"
+    assert call_result["gamma"] > 0, f"Call gamma must be positive, got {call_result['gamma']}"
+    assert put_result["gamma"] > 0, f"Put gamma must be positive, got {put_result['gamma']}"
 
 
 def test_call_put_gamma_equal():
@@ -117,12 +109,8 @@ def test_theta_always_negative():
     """
     call_result = compute_greeks(S=S, K=K, T=T, r=r, sigma=SIGMA, option_type="call")
     put_result = compute_greeks(S=S, K=K, T=T, r=r, sigma=SIGMA, option_type="put")
-    assert (
-        call_result["theta"] < 0
-    ), f"Call theta must be negative, got {call_result['theta']}"
-    assert (
-        put_result["theta"] < 0
-    ), f"Put theta must be negative, got {put_result['theta']}"
+    assert call_result["theta"] < 0, f"Call theta must be negative, got {call_result['theta']}"
+    assert put_result["theta"] < 0, f"Put theta must be negative, got {put_result['theta']}"
 
 
 def test_theta_accelerates_near_expiry():
@@ -131,9 +119,7 @@ def test_theta_accelerates_near_expiry():
     An option with 7 days left loses more per day than one with 180 days left.
     """
     far_expiry = compute_greeks(S=S, K=K, T=0.5, r=r, sigma=SIGMA, option_type="call")
-    near_expiry = compute_greeks(
-        S=S, K=K, T=7 / 365, r=r, sigma=SIGMA, option_type="call"
-    )
+    near_expiry = compute_greeks(S=S, K=K, T=7 / 365, r=r, sigma=SIGMA, option_type="call")
     assert abs(near_expiry["theta"]) > abs(far_expiry["theta"]), (
         f"Near expiry theta should be larger magnitude. "
         f"Got near={near_expiry['theta']}, far={far_expiry['theta']}"
@@ -148,12 +134,8 @@ def test_vega_always_positive():
     """
     call_result = compute_greeks(S=S, K=K, T=T, r=r, sigma=SIGMA, option_type="call")
     put_result = compute_greeks(S=S, K=K, T=T, r=r, sigma=SIGMA, option_type="put")
-    assert (
-        call_result["vega"] > 0
-    ), f"Call vega must be positive, got {call_result['vega']}"
-    assert (
-        put_result["vega"] > 0
-    ), f"Put vega must be positive, got {put_result['vega']}"
+    assert call_result["vega"] > 0, f"Call vega must be positive, got {call_result['vega']}"
+    assert put_result["vega"] > 0, f"Put vega must be positive, got {put_result['vega']}"
 
 
 def test_call_put_vega_equal():
@@ -174,9 +156,7 @@ def test_zero_dte_does_not_crash():
     T = 0 would cause division by zero without MIN_T clamping.
     This test verifies the clamping works — expired contracts should return valid Greeks, not crash the server.
     """
-    result = compute_greeks(
-        S=S, K=K, T=0, r=r, sigma=SIGMA, option_type="call"  # expired contract
-    )
+    result = compute_greeks(S=S, K=K, T=0, r=r, sigma=SIGMA, option_type="call")  # expired contract
     assert result is not None
     assert "delta" in result
     assert "gamma" in result
@@ -190,9 +170,7 @@ def test_zero_sigma_does_not_crash():
     Deep ITM/OTM options can have near-zero IV from Tradier.
     Server must not crash.
     """
-    result = compute_greeks(
-        S=S, K=K, T=T, r=r, sigma=0, option_type="call"  # zero volatility
-    )
+    result = compute_greeks(S=S, K=K, T=T, r=r, sigma=0, option_type="call")  # zero volatility
     assert result is not None
     assert "delta" in result
 
@@ -229,6 +207,5 @@ def test_put_call_parity():
     # Delta put-call parity: call_delta - put_delta = 1 (always)
     delta_diff = call_result["delta"] - put_result["delta"]
     assert abs(delta_diff - 1.0) < TOLERANCE, (
-        f"Put-call delta parity failed. "
-        f"Call delta - Put delta should = 1.0, got {delta_diff}"
+        f"Put-call delta parity failed. " f"Call delta - Put delta should = 1.0, got {delta_diff}"
     )

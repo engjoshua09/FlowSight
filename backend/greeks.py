@@ -20,9 +20,9 @@ def compute_greeks(
 
     gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
 
-    theta_call = -(S * norm.pdf(d1) * sigma) / (2 * np.sqrt(T)) - r * K * np.exp(
-        -r * T
-    ) * norm.cdf(d2)
+    theta_call = -(S * norm.pdf(d1) * sigma) / (2 * np.sqrt(T)) - r * K * np.exp(-r * T) * norm.cdf(
+        d2
+    )
     theta_put = theta_call + r * K * np.exp(-r * T)
     theta_year = theta_call if option_type == "call" else theta_put
     theta = theta_year / 365

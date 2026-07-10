@@ -69,10 +69,7 @@ export default function UOATable({ contracts }) {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  )}
+                  {flexRender(header.column.columnDef.header, header.getContext())}
                   {header.column.getIsSorted() === "asc"
                     ? " ↑"
                     : header.column.getIsSorted() === "desc"
@@ -85,16 +82,12 @@ export default function UOATable({ contracts }) {
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row, i) => (
-            <tr
-              key={row.id}
-              style={{ background: i % 2 === 0 ? "#111" : "#151515" }}
-            >
+            <tr key={row.id} style={{ background: i % 2 === 0 ? "#111" : "#151515" }}>
               {row.getVisibleCells().map((cell) => {
                 const colId = cell.column.id;
                 const val = cell.getValue();
                 let color = "#ddd";
-                if (colId === "type")
-                  color = val === "call" ? "#00d4aa" : "#ff6b6b";
+                if (colId === "type") color = val === "call" ? "#00d4aa" : "#ff6b6b";
                 if (colId === "uoa_score") color = "#f59e0b";
                 return (
                   <td

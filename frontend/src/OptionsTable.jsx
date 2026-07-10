@@ -35,9 +35,7 @@ export default function OptionsTable({ contracts, spotPrice = 0 }) {
 
   // Find the row closest to spot price to highlight as ATM
   const atmStrike = contracts.reduce((closest, c) => {
-    return Math.abs(c.strike - spotPrice) < Math.abs(closest - spotPrice)
-      ? c.strike
-      : closest;
+    return Math.abs(c.strike - spotPrice) < Math.abs(closest - spotPrice) ? c.strike : closest;
   }, contracts[0]?.strike ?? 0);
 
   return (
@@ -67,10 +65,7 @@ export default function OptionsTable({ contracts, spotPrice = 0 }) {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  )}
+                  {flexRender(header.column.columnDef.header, header.getContext())}
                   {header.column.getIsSorted() === "asc"
                     ? " ↑"
                     : header.column.getIsSorted() === "desc"
@@ -88,22 +83,15 @@ export default function OptionsTable({ contracts, spotPrice = 0 }) {
               <tr
                 key={row.id}
                 style={{
-                  background: isATM
-                    ? "#1a2a1a"
-                    : i % 2 === 0
-                      ? "#111"
-                      : "#151515",
-                  borderLeft: isATM
-                    ? "3px solid #00d4aa"
-                    : "3px solid transparent",
+                  background: isATM ? "#1a2a1a" : i % 2 === 0 ? "#111" : "#151515",
+                  borderLeft: isATM ? "3px solid #00d4aa" : "3px solid transparent",
                 }}
               >
                 {row.getVisibleCells().map((cell) => {
                   const colId = cell.column.id;
                   const val = cell.getValue();
                   let color = "#ddd";
-                  if (colId === "type")
-                    color = val === "call" ? "#00d4aa" : "#ff6b6b";
+                  if (colId === "type") color = val === "call" ? "#00d4aa" : "#ff6b6b";
                   if (colId === "delta") color = "#a78bfa";
                   if (colId === "gamma") color = "#60a5fa";
                   if (colId === "theta") color = "#f87171";
@@ -119,10 +107,7 @@ export default function OptionsTable({ contracts, spotPrice = 0 }) {
                         color,
                       }}
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   );
                 })}

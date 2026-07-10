@@ -16,9 +16,7 @@ MIN_OI = 50
 def compute_dte(expiration_date: str) -> int:
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        today = datetime.datetime.today().replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
         return max((exp - today).days, 0)
     except Exception:
         return 999
@@ -57,9 +55,7 @@ def compute_volume_oi_ratio(volume: float, open_interest: float) -> float:
     return float(volume / open_interest)
 
 
-def compute_uoa_score(
-    volume: float, open_interest: float, population_volumes: list
-) -> float:
+def compute_uoa_score(volume: float, open_interest: float, population_volumes: list) -> float:
     ratio = compute_volume_oi_ratio(volume, open_interest)
     zscore = compute_zscore(volume, population_volumes)
     zscore = max(zscore, 0.0)
@@ -67,12 +63,8 @@ def compute_uoa_score(
 
 
 def compute_call_put_ratio(contracts: list) -> dict:
-    call_volume = sum(
-        c.get("volume", 0) for c in contracts if c.get("option_type") == "call"
-    )
-    put_volume = sum(
-        c.get("volume", 0) for c in contracts if c.get("option_type") == "put"
-    )
+    call_volume = sum(c.get("volume", 0) for c in contracts if c.get("option_type") == "call")
+    put_volume = sum(c.get("volume", 0) for c in contracts if c.get("option_type") == "put")
 
     if put_volume == 0:
         ratio = None

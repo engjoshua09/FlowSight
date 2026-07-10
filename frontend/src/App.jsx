@@ -66,9 +66,7 @@ export default function App() {
     ticker.length === 0
       ? POPULAR_TICKERS
       : POPULAR_TICKERS.filter(
-          (t) =>
-            t.symbol.startsWith(ticker) ||
-            t.name.toUpperCase().startsWith(ticker),
+          (t) => t.symbol.startsWith(ticker) || t.name.toUpperCase().startsWith(ticker)
         );
 
   function buildUrl(base, expiry) {
@@ -85,8 +83,7 @@ export default function App() {
     setError(null);
     setData(null);
     try {
-      const url =
-        overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry);
+      const url = overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -145,10 +142,7 @@ export default function App() {
 
   async function refreshOptions() {
     if (!ticker) return;
-    const url = buildUrl(
-      `${API_URL}/options/${ticker}/refresh`,
-      selectedExpiry,
-    );
+    const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry);
     fetchOptions(url);
   }
 
@@ -158,7 +152,7 @@ export default function App() {
 
   function sortAroundSpot(contracts) {
     const strikes = [...new Set(contracts.map((c) => c.strike))].sort(
-      (a, b) => Math.abs(a - spot) - Math.abs(b - spot),
+      (a, b) => Math.abs(a - spot) - Math.abs(b - spot)
     );
     const result = [];
     for (const strike of strikes) {
@@ -190,8 +184,7 @@ export default function App() {
   const totalFlaggedNotional = flaggedCallNotional + flaggedPutNotional;
   const notionalDiffRatio =
     totalFlaggedNotional > 0
-      ? Math.abs(flaggedCallNotional - flaggedPutNotional) /
-        totalFlaggedNotional
+      ? Math.abs(flaggedCallNotional - flaggedPutNotional) / totalFlaggedNotional
       : 0;
   // Within 15% of the total, call it balanced rather than declaring a side —
   // avoids overclaiming on near-ties the way a raw > comparison would.
@@ -231,9 +224,7 @@ export default function App() {
         color: "#fff",
       }}
     >
-      <h1 style={{ color: "#00d4aa", marginBottom: "0.25rem" }}>
-        ⚡ FlowSight
-      </h1>
+      <h1 style={{ color: "#00d4aa", marginBottom: "0.25rem" }}>⚡ FlowSight</h1>
       <p style={{ color: "#888", marginTop: 0, marginBottom: "1.5rem" }}>
         Options Flow Analytics Platform
       </p>
@@ -310,12 +301,8 @@ export default function App() {
                     justifyContent: "space-between",
                     alignItems: "center",
                   }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#252525")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#252525")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <span
                     style={{
@@ -326,9 +313,7 @@ export default function App() {
                   >
                     {t.symbol}
                   </span>
-                  <span style={{ color: "#666", fontSize: "0.8rem" }}>
-                    {t.name}
-                  </span>
+                  <span style={{ color: "#666", fontSize: "0.8rem" }}>{t.name}</span>
                 </div>
               ))}
             </div>
@@ -389,9 +374,7 @@ export default function App() {
       </div>
 
       {loading && <p style={{ color: "#888" }}>Loading options chain...</p>}
-      {error && (
-        <p style={{ color: "#ff4444" }}>⚠ {error} — is the backend running?</p>
-      )}
+      {error && <p style={{ color: "#ff4444" }}>⚠ {error} — is the backend running?</p>}
 
       {data && (
         <>
@@ -409,30 +392,11 @@ export default function App() {
             }}
           >
             <Stat label="Ticker" value={data.ticker} />
-            <Stat
-              label="Spot Price"
-              value={`$${spot.toFixed(2)}`}
-              color="#fff"
-            />
-            <Stat
-              label="Implied Bias"
-              value={data.implied_bias?.toUpperCase()}
-              color={biasColor}
-            />
-            <Stat
-              label="Call/Put Ratio"
-              value={data.call_put_ratio?.toFixed(2)}
-            />
-            <Stat
-              label="Call Volume"
-              value={data.call_volume?.toLocaleString()}
-              color="#00d4aa"
-            />
-            <Stat
-              label="Put Volume"
-              value={data.put_volume?.toLocaleString()}
-              color="#ff6b6b"
-            />
+            <Stat label="Spot Price" value={`$${spot.toFixed(2)}`} color="#fff" />
+            <Stat label="Implied Bias" value={data.implied_bias?.toUpperCase()} color={biasColor} />
+            <Stat label="Call/Put Ratio" value={data.call_put_ratio?.toFixed(2)} />
+            <Stat label="Call Volume" value={data.call_volume?.toLocaleString()} color="#00d4aa" />
+            <Stat label="Put Volume" value={data.put_volume?.toLocaleString()} color="#ff6b6b" />
             <Stat label="🚨 Flagged" value={flagged.length} color="#f59e0b" />
           </div>
 
@@ -450,9 +414,7 @@ export default function App() {
             >
               {data.market_open === false ? (
                 <>
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
-                    🌙
-                  </div>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🌙</div>
                   <div
                     style={{
                       color: "#888",
@@ -463,19 +425,16 @@ export default function App() {
                     Market is currently closed
                   </div>
                   <div style={{ color: "#555", fontSize: "0.85rem" }}>
-                    US markets open Monday–Friday, 9:30am–4:00pm ET
-                    (9:30pm–4:00am SGT). No Options Data available yet for{" "}
-                    {data.ticker} — Please search during market hours instead.
+                    US markets open Monday–Friday, 9:30am–4:00pm ET (9:30pm–4:00am SGT). No Options
+                    Data available yet for {data.ticker} — Please search during market hours
+                    instead.
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
-                    ⚠️
-                  </div>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
                   <div style={{ color: "#888", fontSize: "1rem" }}>
-                    No contracts found for {data.ticker}. Try refreshing or
-                    check the ticker.
+                    No contracts found for {data.ticker}. Try refreshing or check the ticker.
                   </div>
                 </>
               )}
@@ -495,8 +454,8 @@ export default function App() {
                 fontSize: "0.82rem",
               }}
             >
-              📸 Showing last market-hours snapshot — market is currently
-              closed. Data was captured during today's trading session.
+              📸 Showing last market-hours snapshot — market is currently closed. Data was captured
+              during today's trading session.
             </div>
           )}
 
@@ -514,12 +473,7 @@ export default function App() {
               active={activeTab}
               onClick={setActiveTab}
             />
-            <Tab
-              label="⚙ Greeks Calc"
-              id="greeks"
-              active={activeTab}
-              onClick={setActiveTab}
-            />
+            <Tab label="⚙ Greeks Calc" id="greeks" active={activeTab} onClick={setActiveTab} />
           </div>
 
           {/* Full Chain tab */}
@@ -534,9 +488,7 @@ export default function App() {
                   flexWrap: "wrap",
                 }}
               >
-                <span style={{ color: "#888", fontSize: "0.85rem" }}>
-                  Type:
-                </span>
+                <span style={{ color: "#888", fontSize: "0.85rem" }}>Type:</span>
                 {["all", "call", "put"].map((f) => (
                   <button
                     key={f}
@@ -560,11 +512,7 @@ export default function App() {
                       textTransform: "capitalize",
                     }}
                   >
-                    {f === "all"
-                      ? "All"
-                      : f === "call"
-                        ? "📈 Calls"
-                        : "📉 Puts"}
+                    {f === "all" ? "All" : f === "call" ? "📈 Calls" : "📉 Puts"}
                   </button>
                 ))}
                 <span
@@ -601,8 +549,7 @@ export default function App() {
                     marginLeft: "0.5rem",
                   }}
                 >
-                  {sortedChain.length} contracts — centred around spot $
-                  {spot.toFixed(2)}
+                  {sortedChain.length} contracts — centred around spot ${spot.toFixed(2)}
                 </span>
               </div>
               <OptionsTable contracts={sortedChain} spotPrice={spot} />
@@ -647,33 +594,28 @@ export default function App() {
                     </strong>
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> —
-                    measures how much new activity is happening relative to
-                    existing positions. A ratio above 1.0 means more contracts
-                    traded today than currently exist as open positions.
+                    <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> — measures how much
+                    new activity is happening relative to existing positions. A ratio above 1.0
+                    means more contracts traded today than currently exist as open positions.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#aaa" }}>Z-Score</strong> —
-                    measures how many standard deviations above the 30-day
-                    average today's volume is. A Z-score above 2.0 means today's
-                    volume is statistically unusual.
+                    <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard
+                    deviations above the 30-day average today's volume is. A Z-score above 2.0 means
+                    today's volume is statistically unusual.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when
-                    UOA Score {">"} 3, volume {">"} 100, open interest {">"} 50,
-                    and DTE ≤ 30 days.
+                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3,
+                    volume {">"} 100, open interest {">"} 50, and DTE ≤ 30 days.
                   </p>
                   <p style={{ color: "#555" }}>
-                    ⚠ High UOA does not confirm directional intent. Activity may
-                    reflect hedging, spread construction, or position rolling.
+                    ⚠ High UOA does not confirm directional intent. Activity may reflect hedging,
+                    spread construction, or position rolling.
                   </p>
                   <p style={{ color: "#555", marginTop: "0.5rem" }}>
-                    ℹ These signals reflect only the{" "}
-                    {selectedExpiry || "selected"} expiry currently chosen
-                    above. Switch expiries to see how unusual activity differs
-                    across timeframes — signals concentrated in a single
-                    near-dated expiry often reflect hedging rather than
-                    sustained positioning.
+                    ℹ These signals reflect only the {selectedExpiry || "selected"} expiry currently
+                    chosen above. Switch expiries to see how unusual activity differs across
+                    timeframes — signals concentrated in a single near-dated expiry often reflect
+                    hedging rather than sustained positioning.
                   </p>
                 </div>
               </details>
@@ -690,9 +632,8 @@ export default function App() {
                   fontSize: "0.85rem",
                 }}
               >
-                ⚠ Elevated activity may reflect directional positioning,
-                hedging, or spread construction. These are signals for further
-                research — not trading recommendations.
+                ⚠ Elevated activity may reflect directional positioning, hedging, or spread
+                construction. These are signals for further research — not trading recommendations.
               </div>
 
               {/* Flagged-set skew summary — notional-weighted, not raw contract counts */}
@@ -707,21 +648,15 @@ export default function App() {
                     fontSize: "0.85rem",
                   }}
                 >
-                  <strong style={{ color: "#f59e0b" }}>
-                    {flagged.length} flagged:
-                  </strong>{" "}
+                  <strong style={{ color: "#f59e0b" }}>{flagged.length} flagged:</strong>{" "}
                   <span style={{ color: "#00d4aa" }}>
-                    {flaggedCalls} calls (
-                    {formatNotionalShort(flaggedCallNotional)})
+                    {flaggedCalls} calls ({formatNotionalShort(flaggedCallNotional)})
                   </span>
                   {" / "}
                   <span style={{ color: "#ff6b6b" }}>
-                    {flaggedPuts} puts (
-                    {formatNotionalShort(flaggedPutNotional)})
+                    {flaggedPuts} puts ({formatNotionalShort(flaggedPutNotional)})
                   </span>
-                  {skewNote && (
-                    <span style={{ color: "#666" }}> — {skewNote}</span>
-                  )}
+                  {skewNote && <span style={{ color: "#666" }}> — {skewNote}</span>}
                 </div>
               )}
 
@@ -735,9 +670,7 @@ export default function App() {
               */}
 
               {flagged.length === 0 ? (
-                <p style={{ color: "#888" }}>
-                  No flagged contracts for {data.ticker}.
-                </p>
+                <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
               ) : (
                 <UOATable contracts={flagged} />
               )}
@@ -765,9 +698,7 @@ function Stat({ label, value, color = "#fff" }) {
       >
         {label}
       </span>
-      <span style={{ color, fontSize: "1rem", fontWeight: "bold" }}>
-        {value}
-      </span>
+      <span style={{ color, fontSize: "1rem", fontWeight: "bold" }}>{value}</span>
     </div>
   );
 }

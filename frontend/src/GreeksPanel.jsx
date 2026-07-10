@@ -11,8 +11,7 @@ function erf(x) {
   const sign = x < 0 ? -1 : 1;
   x = Math.abs(x);
   const t = 1 / (1 + p * x);
-  const y =
-    1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  const y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
   return sign * y;
 }
 
@@ -37,8 +36,7 @@ function computeGreeks(S, K, T_days, r, sigma, optionType) {
   const gamma = normPdf(d1) / (S * s * Math.sqrt(T));
 
   const thetaCall =
-    -(S * normPdf(d1) * s) / (2 * Math.sqrt(T)) -
-    r * K * Math.exp(-r * T) * normCdf(d2);
+    -(S * normPdf(d1) * s) / (2 * Math.sqrt(T)) - r * K * Math.exp(-r * T) * normCdf(d2);
   const thetaPut = thetaCall + r * K * Math.exp(-r * T);
   const theta = (optionType === "call" ? thetaCall : thetaPut) / 365;
 
@@ -64,19 +62,14 @@ export default function GreeksPanel({ initialSpot = 100 }) {
 
   const greeks = useMemo(
     () => computeGreeks(spot, strike, dte, R, iv, optType),
-    [spot, strike, iv, dte, optType],
+    [spot, strike, iv, dte, optType]
   );
 
   // 2% buffer so ATM doesn't flicker when spot and strike are close
-  const moneyness =
-    spot > strike * 1.02 ? "ITM" : spot < strike * 0.98 ? "OTM" : "ATM";
+  const moneyness = spot > strike * 1.02 ? "ITM" : spot < strike * 0.98 ? "OTM" : "ATM";
 
   const moneynessColor =
-    moneyness === "ITM"
-      ? "#00d4aa"
-      : moneyness === "OTM"
-        ? "#ff6b6b"
-        : "#f59e0b";
+    moneyness === "ITM" ? "#00d4aa" : moneyness === "OTM" ? "#ff6b6b" : "#f59e0b";
 
   return (
     <div
@@ -105,8 +98,8 @@ export default function GreeksPanel({ initialSpot = 100 }) {
             lineHeight: 1.5,
           }}
         >
-          Adjust inputs to see how Greeks change in real time. Uses the same
-          Black-Scholes model as the backend.
+          Adjust inputs to see how Greeks change in real time. Uses the same Black-Scholes model as
+          the backend.
         </p>
 
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
@@ -117,12 +110,7 @@ export default function GreeksPanel({ initialSpot = 100 }) {
               style={{
                 flex: 1,
                 padding: "0.5rem",
-                background:
-                  optType === t
-                    ? t === "call"
-                      ? "#00d4aa"
-                      : "#ff6b6b"
-                    : "#111",
+                background: optType === t ? (t === "call" ? "#00d4aa" : "#ff6b6b") : "#111",
                 color: optType === t ? "#000" : "#666",
                 border: `1px solid ${optType === t ? (t === "call" ? "#00d4aa" : "#ff6b6b") : "#333"}`,
                 borderRadius: "6px",
@@ -239,9 +227,7 @@ export default function GreeksPanel({ initialSpot = 100 }) {
               marginBottom: "0.4rem",
             }}
           >
-            <span style={{ color: "#666", fontSize: "0.75rem" }}>
-              DELTA EXPOSURE
-            </span>
+            <span style={{ color: "#666", fontSize: "0.75rem" }}>DELTA EXPOSURE</span>
             <span
               style={{
                 color: "#a78bfa",
