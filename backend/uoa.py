@@ -1,6 +1,7 @@
-import numpy as np
 import datetime
 import logging
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
