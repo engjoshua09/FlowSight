@@ -13,18 +13,18 @@ const VOLUME_FILTERS = [
 ];
 
 const POPULAR_TICKERS = [
-  { symbol: "AAPL",  name: "Apple" },
-  { symbol: "MSFT",  name: "Microsoft" },
-  { symbol: "NVDA",  name: "NVIDIA" },
-  { symbol: "TSLA",  name: "Tesla" },
-  { symbol: "AMZN",  name: "Amazon" },
+  { symbol: "AAPL", name: "Apple" },
+  { symbol: "MSFT", name: "Microsoft" },
+  { symbol: "NVDA", name: "NVIDIA" },
+  { symbol: "TSLA", name: "Tesla" },
+  { symbol: "AMZN", name: "Amazon" },
   { symbol: "GOOGL", name: "Alphabet" },
-  { symbol: "META",  name: "Meta" },
-  { symbol: "SPY",   name: "S&P 500 ETF" },
-  { symbol: "QQQ",   name: "Nasdaq ETF" },
-  { symbol: "AMD",   name: "AMD" },
-  { symbol: "NFLX",  name: "Netflix" },
-  { symbol: "MU",    name: "Micron" },
+  { symbol: "META", name: "Meta" },
+  { symbol: "SPY", name: "S&P 500 ETF" },
+  { symbol: "QQQ", name: "Nasdaq ETF" },
+  { symbol: "AMD", name: "AMD" },
+  { symbol: "NFLX", name: "Netflix" },
+  { symbol: "MU", name: "Micron" },
 ];
 
 const FEATURE_CARDS = [
@@ -64,23 +64,25 @@ const FEATURE_CARDS = [
 ];
 
 export default function App() {
-  const [ticker, setTicker]                 = useState("");
-  const [data, setData]                     = useState(null);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState(null);
-  const [activeTab, setActiveTab]           = useState("chain");
-  const [typeFilter, setTypeFilter]         = useState("all");
-  const [minVolume, setMinVolume]           = useState(0);
+  const [ticker, setTicker] = useState("");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("chain");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [minVolume, setMinVolume] = useState(0);
   const [selectedExpiry, setSelectedExpiry] = useState(null);
-  const [showDropdown, setShowDropdown]     = useState(false);
-  const inputRef    = useRef(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(e) {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-        inputRef.current   && !inputRef.current.contains(e.target)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target)
       ) {
         setShowDropdown(false);
       }
@@ -89,12 +91,12 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredTickers = ticker.length === 0
-    ? POPULAR_TICKERS
-    : POPULAR_TICKERS.filter(
-        (t) =>
-          t.symbol.startsWith(ticker) || t.name.toUpperCase().startsWith(ticker)
-      );
+  const filteredTickers =
+    ticker.length === 0
+      ? POPULAR_TICKERS
+      : POPULAR_TICKERS.filter(
+          (t) => t.symbol.startsWith(ticker) || t.name.toUpperCase().startsWith(ticker)
+        );
 
   function buildUrl(base, expiry) {
     const params = new URLSearchParams();
@@ -110,9 +112,7 @@ export default function App() {
     setError(null);
     setData(null);
     try {
-      const url =
-        overrideUrl ||
-        buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry);
+      const url = overrideUrl || buildUrl(`${API_URL}/options/${ticker}`, selectedExpiry);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -171,16 +171,13 @@ export default function App() {
 
   async function refreshOptions() {
     if (!ticker) return;
-    const url = buildUrl(
-      `${API_URL}/options/${ticker}/refresh`,
-      selectedExpiry
-    );
+    const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry);
     fetchOptions(url);
   }
 
-  const spot         = data?.spot_price ?? 0;
-  const allContracts = data?.contracts  ?? [];
-  const expirations  = data?.expirations ?? [];
+  const spot = data?.spot_price ?? 0;
+  const allContracts = data?.contracts ?? [];
+  const expirations = data?.expirations ?? [];
 
   function sortAroundSpot(contracts) {
     const strikes = [...new Set(contracts.map((c) => c.strike))].sort(
@@ -196,18 +193,18 @@ export default function App() {
 
   const filtered = allContracts.filter((c) => {
     const typeMatch = typeFilter === "all" ? true : c.type === typeFilter;
-    const volMatch  = (c.volume || 0) >= minVolume;
+    const volMatch = (c.volume || 0) >= minVolume;
     return typeMatch && volMatch;
   });
 
   const sortedChain = sortAroundSpot(filtered);
-  const flagged     = allContracts.filter((c) => c.is_flagged);
-  const biasColor   =
+  const flagged = allContracts.filter((c) => c.is_flagged);
+  const biasColor =
     data?.implied_bias === "bullish"
       ? "#00d4aa"
       : data?.implied_bias === "bearish"
-      ? "#ff6b6b"
-      : "#888";
+        ? "#ff6b6b"
+        : "#888";
 
   return (
     <div
@@ -327,12 +324,8 @@ export default function App() {
                       justifyContent: "space-between",
                       alignItems: "center",
                     }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#252525")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
-                    }
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#252525")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <span
                       style={{
@@ -343,9 +336,7 @@ export default function App() {
                     >
                       {t.symbol}
                     </span>
-                    <span style={{ color: "#666", fontSize: "0.8rem" }}>
-                      {t.name}
-                    </span>
+                    <span style={{ color: "#666", fontSize: "0.8rem" }}>{t.name}</span>
                   </div>
                 ))}
               </div>
@@ -467,9 +458,7 @@ export default function App() {
         </p>
       )}
       {error && (
-        <p
-          style={{ color: "#ff4444", textAlign: "center", marginTop: "1rem" }}
-        >
+        <p style={{ color: "#ff4444", textAlign: "center", marginTop: "1rem" }}>
           ⚠ {error} — is the backend running?
         </p>
       )}
@@ -556,10 +545,9 @@ export default function App() {
               lineHeight: 1.7,
             }}
           >
-            FlowSight is a decision-support tool, not a trading recommendation
-            engine. UOA signals reflect elevated activity — not confirmed
-            directional intent. Always cross-reference with price action and
-            fundamentals before placing any trade.
+            FlowSight is a decision-support tool, not a trading recommendation engine. UOA signals
+            reflect elevated activity — not confirmed directional intent. Always cross-reference
+            with price action and fundamentals before placing any trade.
           </p>
         </>
       )}
@@ -580,13 +568,13 @@ export default function App() {
               border: "1px solid #2a2a2a",
             }}
           >
-            <Stat label="Ticker"          value={data.ticker} />
-            <Stat label="Spot Price"      value={`$${spot.toFixed(2)}`}              color="#fff" />
-            <Stat label="Implied Bias"    value={data.implied_bias?.toUpperCase()}   color={biasColor} />
-            <Stat label="Call/Put Ratio"  value={data.call_put_ratio?.toFixed(2)} />
-            <Stat label="Call Volume"     value={data.call_volume?.toLocaleString()} color="#00d4aa" />
-            <Stat label="Put Volume"      value={data.put_volume?.toLocaleString()}  color="#ff6b6b" />
-            <Stat label="🚨 Flagged"      value={flagged.length}                     color="#f59e0b" />
+            <Stat label="Ticker" value={data.ticker} />
+            <Stat label="Spot Price" value={`$${spot.toFixed(2)}`} color="#fff" />
+            <Stat label="Implied Bias" value={data.implied_bias?.toUpperCase()} color={biasColor} />
+            <Stat label="Call/Put Ratio" value={data.call_put_ratio?.toFixed(2)} />
+            <Stat label="Call Volume" value={data.call_volume?.toLocaleString()} color="#00d4aa" />
+            <Stat label="Put Volume" value={data.put_volume?.toLocaleString()} color="#ff6b6b" />
+            <Stat label="🚨 Flagged" value={flagged.length} color="#f59e0b" />
           </div>
 
           {/* Tabs */}
@@ -603,12 +591,7 @@ export default function App() {
               active={activeTab}
               onClick={setActiveTab}
             />
-            <Tab
-              label="⚙ Greeks Calc"
-              id="greeks"
-              active={activeTab}
-              onClick={setActiveTab}
-            />
+            <Tab label="⚙ Greeks Calc" id="greeks" active={activeTab} onClick={setActiveTab} />
           </div>
 
           {/* Full Chain tab */}
@@ -623,9 +606,7 @@ export default function App() {
                   flexWrap: "wrap",
                 }}
               >
-                <span style={{ color: "#888", fontSize: "0.85rem" }}>
-                  Type:
-                </span>
+                <span style={{ color: "#888", fontSize: "0.85rem" }}>Type:</span>
                 {["all", "call", "put"].map((f) => (
                   <button
                     key={f}
@@ -638,8 +619,8 @@ export default function App() {
                           ? f === "call"
                             ? "#00d4aa"
                             : f === "put"
-                            ? "#ff6b6b"
-                            : "#555"
+                              ? "#ff6b6b"
+                              : "#555"
                           : "#1a1a1a",
                       color: typeFilter === f ? "#000" : "#888",
                       border: "1px solid #333",
@@ -668,8 +649,7 @@ export default function App() {
                     style={{
                       padding: "0.3rem 0.8rem",
                       fontSize: "0.85rem",
-                      background:
-                        minVolume === f.value ? "#a78bfa" : "#1a1a1a",
+                      background: minVolume === f.value ? "#a78bfa" : "#1a1a1a",
                       color: minVolume === f.value ? "#000" : "#888",
                       border: "1px solid #333",
                       borderRadius: "4px",
@@ -687,8 +667,7 @@ export default function App() {
                     marginLeft: "0.5rem",
                   }}
                 >
-                  {sortedChain.length} contracts — centred around spot $
-                  {spot.toFixed(2)}
+                  {sortedChain.length} contracts — centred around spot ${spot.toFixed(2)}
                 </span>
               </div>
               <OptionsTable contracts={sortedChain} spotPrice={spot} />
@@ -732,24 +711,22 @@ export default function App() {
                     </strong>
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong>{" "}
-                    — measures how much new activity is happening relative to
-                    existing positions. A ratio above 1.0 means more contracts
-                    traded today than currently exist as open positions.
+                    <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> — measures how much
+                    new activity is happening relative to existing positions. A ratio above 1.0
+                    means more contracts traded today than currently exist as open positions.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#aaa" }}>Z-Score</strong> —
-                    cross-sectional: how unusual is this contract&apos;s volume
-                    compared to every other contract in the same chain today.
+                    <strong style={{ color: "#aaa" }}>Z-Score</strong> — cross-sectional: how
+                    unusual is this contract&apos;s volume compared to every other contract in the
+                    same chain today.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when
-                    UOA Score &gt; 3, volume &gt; 100, and DTE ≤ 30 days.
+                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score &gt; 3,
+                    volume &gt; 100, and DTE ≤ 30 days.
                   </p>
                   <p style={{ color: "#555" }}>
-                    ⚠ High UOA does not confirm directional intent. Activity
-                    may reflect hedging, spread construction, or position
-                    rolling.
+                    ⚠ High UOA does not confirm directional intent. Activity may reflect hedging,
+                    spread construction, or position rolling.
                   </p>
                 </div>
               </details>
@@ -765,15 +742,12 @@ export default function App() {
                   fontSize: "0.85rem",
                 }}
               >
-                ⚠ Elevated activity may reflect directional positioning,
-                hedging, or spread construction. These are signals for further
-                research — not trading recommendations.
+                ⚠ Elevated activity may reflect directional positioning, hedging, or spread
+                construction. These are signals for further research — not trading recommendations.
               </div>
 
               {flagged.length === 0 ? (
-                <p style={{ color: "#888" }}>
-                  No flagged contracts for {data.ticker}.
-                </p>
+                <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
               ) : (
                 <UOATable contracts={flagged} />
               )}
@@ -796,10 +770,9 @@ export default function App() {
             lineHeight: 1.7,
           }}
         >
-          FlowSight is a decision-support tool, not a trading recommendation
-          engine. UOA signals reflect elevated activity — not confirmed
-          directional intent. Always cross-reference with price action and
-          fundamentals before placing any trade.
+          FlowSight is a decision-support tool, not a trading recommendation engine. UOA signals
+          reflect elevated activity — not confirmed directional intent. Always cross-reference with
+          price action and fundamentals before placing any trade.
         </p>
       )}
     </div>
@@ -819,9 +792,7 @@ function Stat({ label, value, color = "#fff" }) {
       >
         {label}
       </span>
-      <span style={{ color, fontSize: "1rem", fontWeight: "bold" }}>
-        {value}
-      </span>
+      <span style={{ color, fontSize: "1rem", fontWeight: "bold" }}>{value}</span>
     </div>
   );
 }
