@@ -28,6 +28,42 @@ const POPULAR_TICKERS = [
   { symbol: "MU", name: "Micron" },
 ];
 
+const FEATURE_CARDS = [
+  {
+    icon: "📊",
+    title: "Full Options Chain",
+    color: "#00d4aa",
+    points: [
+      "Live data via Tradier API",
+      "Delta, Gamma, Theta, Vega per contract",
+      "Sortable by any column",
+      "Centred around spot price",
+    ],
+  },
+  {
+    icon: "🚨",
+    title: "UOA Signal Detection",
+    color: "#f59e0b",
+    points: [
+      "Scores every contract by unusual activity",
+      "Volume / OI × Z-Score algorithm",
+      "Filters noise with minimum thresholds",
+      "Flags near-term institutional flow",
+    ],
+  },
+  {
+    icon: "⚙",
+    title: "Greeks Calculator",
+    color: "#a78bfa",
+    points: [
+      "Full Black-Scholes in the browser",
+      "Adjust spot, strike, IV, DTE",
+      "Delta exposure bar + moneyness badge",
+      "Matches backend to 4 decimal places",
+    ],
+  },
+];
+
 function formatNotionalShort(value) {
   if (!value) return "$0";
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
@@ -171,9 +207,10 @@ export default function App() {
 
   const sortedChain = sortAroundSpot(filtered);
   const flagged = allContracts.filter((c) => c.is_flagged);
+
+  // Nat's notional-weighted skew logic — preserved exactly
   const flaggedCalls = flagged.filter((c) => c.type === "call").length;
   const flaggedPuts = flagged.filter((c) => c.type === "put").length;
-
   const flaggedCallNotional = flagged
     .filter((c) => c.type === "call")
     .reduce((sum, c) => sum + (c.notional_value || 0), 0);
@@ -191,7 +228,6 @@ export default function App() {
       : flaggedCallNotional > flaggedPutNotional
         ? "call-heavy"
         : "put-heavy";
-
   let skewNote = "";
   if (data?.implied_bias) {
     if (notionalSkew === "balanced") {
@@ -221,152 +257,322 @@ export default function App() {
         color: "#fff",
       }}
     >
-      <h1 style={{ color: "#00d4aa", marginBottom: "0.25rem" }}>⚡ FlowSight</h1>
-      <p style={{ color: "#888", marginTop: 0, marginBottom: "1.5rem" }}>
-        Options Flow Analytics Platform
-      </p>
-
-      {/* Search bar */}
+      {/* ── Hero — shrinks after search ───────────────────────────────── */}
       <div
         style={{
-          marginBottom: "1.5rem",
-          display: "flex",
-          gap: "0.5rem",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
+          textAlign: "center",
+          padding: data ? "1rem 0 1.5rem" : "3rem 0 2.5rem",
+          transition: "padding 0.3s ease",
         }}
       >
-        <div style={{ position: "relative" }}>
-          <input
-            ref={inputRef}
-            value={ticker}
-            onChange={(e) => {
-              setTicker(e.target.value.toUpperCase());
-              setShowDropdown(true);
-            }}
-            onFocus={() => setShowDropdown(true)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") fetchOptions();
-              if (e.key === "Escape") setShowDropdown(false);
-            }}
-            placeholder="Enter ticker (e.g. AAPL)"
-            style={{
-              padding: "0.6rem 1rem",
-              fontSize: "1rem",
-              background: "#1a1a1a",
-              border: "1px solid #333",
-              color: "#fff",
-              borderRadius: "6px",
-              width: "220px",
-            }}
-          />
-          {showDropdown && filteredTickers.length > 0 && (
-            <div
-              ref={dropdownRef}
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                width: "220px",
-                background: "#1a1a1a",
-                border: "1px solid #333",
-                borderRadius: "6px",
-                marginTop: "4px",
-                zIndex: 100,
-                maxHeight: "260px",
-                overflowY: "auto",
-              }}
-            >
-              <div
-                style={{
-                  padding: "0.4rem 0.8rem",
-                  color: "#555",
-                  fontSize: "0.72rem",
-                  borderBottom: "1px solid #2a2a2a",
-                }}
-              >
-                Popular tickers
-              </div>
-              {filteredTickers.map((t) => (
-                <div
-                  key={t.symbol}
-                  onMouseDown={() => selectTicker(t.symbol)}
-                  style={{
-                    padding: "0.5rem 0.8rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#252525")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                >
-                  <span style={{ color: "#00d4aa", fontWeight: "bold", fontSize: "0.9rem" }}>
-                    {t.symbol}
-                  </span>
-                  <span style={{ color: "#666", fontSize: "0.8rem" }}>{t.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={() => fetchOptions()}
+        <h1
           style={{
-            padding: "0.6rem 1.2rem",
-            fontSize: "1rem",
-            background: "#00d4aa",
-            color: "#000",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontWeight: "bold",
+            color: "#00d4aa",
+            fontSize: data ? "1.8rem" : "2.6rem",
+            marginBottom: "0.25rem",
+            letterSpacing: "-0.5px",
+            transition: "font-size 0.3s ease",
           }}
         >
-          Search
-        </button>
-        {data && (
-          <button
-            onClick={refreshOptions}
+          ⚡ FlowSight
+        </h1>
+        {!data && (
+          <p
             style={{
-              padding: "0.6rem 1rem",
-              fontSize: "0.9rem",
-              background: "#1a1a1a",
-              color: "#888",
-              border: "1px solid #333",
-              borderRadius: "6px",
-              cursor: loading ? "not-allowed" : "pointer",
+              color: "#555",
+              fontSize: "1rem",
+              marginBottom: "2rem",
+              letterSpacing: "0.02em",
             }}
           >
-            {loading ? "..." : "🔄 Refresh"}
-          </button>
+            Options flow analytics for retail investors
+          </p>
         )}
-        {expirations.length > 0 && (
-          <select
-            value={selectedExpiry || ""}
-            onChange={(e) => fetchByExpiry(e.target.value)}
+
+        {/* ── Search bar ───────────────────────────────────────────────── */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "0.5rem",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            marginBottom: "1rem",
+          }}
+        >
+          <div style={{ position: "relative" }}>
+            <input
+              ref={inputRef}
+              value={ticker}
+              onChange={(e) => {
+                setTicker(e.target.value.toUpperCase());
+                setShowDropdown(true);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchOptions();
+                if (e.key === "Escape") setShowDropdown(false);
+              }}
+              placeholder="Enter ticker (e.g. AAPL)"
+              style={{
+                padding: "0.65rem 1.1rem",
+                fontSize: "1rem",
+                background: "#1a1a1a",
+                border: "1px solid #333",
+                color: "#fff",
+                borderRadius: "8px",
+                width: "240px",
+                outline: "none",
+              }}
+            />
+            {/* Dropdown */}
+            {showDropdown && filteredTickers.length > 0 && (
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  width: "240px",
+                  background: "#1a1a1a",
+                  border: "1px solid #333",
+                  borderRadius: "8px",
+                  marginTop: "4px",
+                  zIndex: 100,
+                  maxHeight: "260px",
+                  overflowY: "auto",
+                  textAlign: "left",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "0.4rem 0.8rem",
+                    color: "#555",
+                    fontSize: "0.72rem",
+                    borderBottom: "1px solid #2a2a2a",
+                  }}
+                >
+                  Popular tickers
+                </div>
+                {filteredTickers.map((t) => (
+                  <div
+                    key={t.symbol}
+                    onMouseDown={() => selectTicker(t.symbol)}
+                    style={{
+                      padding: "0.5rem 0.8rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#252525")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <span
+                      style={{
+                        color: "#00d4aa",
+                        fontWeight: "bold",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      {t.symbol}
+                    </span>
+                    <span style={{ color: "#666", fontSize: "0.8rem" }}>{t.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => fetchOptions()}
             style={{
-              padding: "0.6rem 1rem",
-              fontSize: "0.9rem",
-              background: "#1a1a1a",
-              border: "1px solid #333",
-              color: "#fff",
-              borderRadius: "6px",
+              padding: "0.65rem 1.4rem",
+              fontSize: "1rem",
+              background: "#00d4aa",
+              color: "#000",
+              border: "none",
+              borderRadius: "8px",
               cursor: "pointer",
+              fontWeight: "bold",
             }}
           >
-            {expirations.map((exp) => (
-              <option key={exp} value={exp}>
-                {exp}
-              </option>
+            Search
+          </button>
+
+          {data && (
+            <button
+              onClick={refreshOptions}
+              style={{
+                padding: "0.65rem 1rem",
+                fontSize: "0.9rem",
+                background: "#1a1a1a",
+                color: "#888",
+                border: "1px solid #333",
+                borderRadius: "8px",
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              {loading ? "..." : "🔄 Refresh"}
+            </button>
+          )}
+
+          {expirations.length > 0 && (
+            <select
+              value={selectedExpiry || ""}
+              onChange={(e) => fetchByExpiry(e.target.value)}
+              style={{
+                padding: "0.65rem 1rem",
+                fontSize: "0.9rem",
+                background: "#1a1a1a",
+                border: "1px solid #333",
+                color: "#fff",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+            >
+              {expirations.map((exp) => (
+                <option key={exp} value={exp}>
+                  {exp}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* ── Ticker chips — landing only ───────────────────────────── */}
+        {!data && !loading && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <span
+              style={{
+                color: "#444",
+                fontSize: "0.8rem",
+                alignSelf: "center",
+                marginRight: "0.25rem",
+              }}
+            >
+              Try:
+            </span>
+            {POPULAR_TICKERS.map((t) => (
+              <button
+                key={t.symbol}
+                onClick={() => selectTicker(t.symbol)}
+                style={{
+                  padding: "0.3rem 0.75rem",
+                  fontSize: "0.82rem",
+                  background: "#1a1a1a",
+                  color: "#00d4aa",
+                  border: "1px solid #2a2a2a",
+                  borderRadius: "20px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  transition: "border-color 0.15s, background 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#00d4aa";
+                  e.currentTarget.style.background = "#0a1a18";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#2a2a2a";
+                  e.currentTarget.style.background = "#1a1a1a";
+                }}
+              >
+                {t.symbol}
+              </button>
             ))}
-          </select>
+          </div>
         )}
       </div>
 
-      {loading && <p style={{ color: "#888" }}>Loading options chain...</p>}
-      {error && <p style={{ color: "#ff4444" }}>⚠ {error} — is the backend running?</p>}
+      {/* ── Loading / Error ───────────────────────────────────────────── */}
+      {loading && <p style={{ color: "#888", textAlign: "center" }}>Loading options chain…</p>}
+      {error && (
+        <p style={{ color: "#ff4444", textAlign: "center" }}>⚠ {error} — is the backend running?</p>
+      )}
 
+      {/* ── Feature cards — landing only ─────────────────────────────── */}
+      {!data && !loading && (
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "1rem",
+              maxWidth: "900px",
+              margin: "2.5rem auto 0",
+            }}
+          >
+            {FEATURE_CARDS.map((card) => (
+              <div
+                key={card.title}
+                style={{
+                  background: "#111",
+                  border: `1px solid ${card.color}22`,
+                  borderRadius: "12px",
+                  padding: "1.5rem",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontSize: "1.6rem", marginBottom: "0.6rem" }}>{card.icon}</div>
+                <div
+                  style={{
+                    color: card.color,
+                    fontWeight: "bold",
+                    fontSize: "1rem",
+                    marginBottom: "0.75rem",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {card.title}
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {card.points.map((pt) => (
+                    <li
+                      key={pt}
+                      style={{
+                        color: "#666",
+                        fontSize: "0.82rem",
+                        lineHeight: 1.7,
+                        paddingLeft: "0.9rem",
+                        position: "relative",
+                      }}
+                    >
+                      <span style={{ position: "absolute", left: 0, color: card.color }}>›</span>
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Landing disclaimer */}
+          <p
+            style={{
+              textAlign: "center",
+              color: "#333",
+              fontSize: "0.75rem",
+              maxWidth: "680px",
+              margin: "2rem auto 0",
+              lineHeight: 1.7,
+            }}
+          >
+            FlowSight is a decision-support tool, not a trading recommendation engine. UOA signals
+            reflect elevated activity — not confirmed directional intent. Always cross-reference
+            with price action and fundamentals before placing any trade.
+          </p>
+        </>
+      )}
+
+      {/* ── Data view ────────────────────────────────────────────────── */}
       {data && (
         <>
           {/* Summary bar */}
@@ -392,7 +598,7 @@ export default function App() {
           </div>
 
           {/* After-hours / empty state banner */}
-          {data && allContracts.length === 0 && (
+          {allContracts.length === 0 && (
             <div
               style={{
                 padding: "1.5rem",
@@ -426,8 +632,8 @@ export default function App() {
             </div>
           )}
 
-          {/* Snapshot banner — shown when serving cached market-hours data */}
-          {data && data.from_snapshot && allContracts.length > 0 && (
+          {/* Snapshot banner */}
+          {data.from_snapshot && allContracts.length > 0 && (
             <div
               style={{
                 padding: "0.6rem 1rem",
@@ -440,7 +646,7 @@ export default function App() {
               }}
             >
               📸 Showing last market-hours snapshot — market is currently closed. Data was captured
-              during today's trading session.
+              during today&apos;s trading session.
             </div>
           )}
 
@@ -573,12 +779,12 @@ export default function App() {
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
                     <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard
-                    deviations above the 30-day average today's volume is. A Z-score above 2.0 means
-                    today's volume is statistically unusual.
+                    deviations above the 30-day average today&apos;s volume is. A Z-score above 2.0
+                    means today&apos;s volume is statistically unusual.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score {">"} 3,
-                    volume {">"} 100, open interest {">"} 50, and DTE ≤ 30 days.
+                    <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score &gt; 3,
+                    volume &gt; 100, open interest &gt; 50, and DTE ≤ 30 days.
                   </p>
                   <p style={{ color: "#555" }}>
                     ⚠ High UOA does not confirm directional intent. Activity may reflect hedging,
@@ -609,7 +815,7 @@ export default function App() {
                 construction. These are signals for further research — not trading recommendations.
               </div>
 
-              {/* Flagged-set skew summary — notional-weighted, not raw contract counts */}
+              {/* Notional-weighted skew summary — Nat's logic */}
               {flagged.length > 0 && (
                 <div
                   style={{
@@ -633,21 +839,12 @@ export default function App() {
                 </div>
               )}
 
-              {/* Expected move range, with flagged UOA contracts overlaid by strike/notional */}
+              {/* Expected move chart — Nat's feature */}
               <ExpectedMoveChart
                 flaggedContracts={flagged}
                 expectedMove={data.expected_move}
                 spot={spot}
               />
-
-              {/* OTM Range slider — commented out, to be re-enabled in M3 with real historical data
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem", padding: "0.75rem 1rem", background: "#1a1a1a", borderRadius: "6px", border: "1px solid #2a2a2a" }}>
-                <span style={{ color: "#888", fontSize: "0.85rem", whiteSpace: "nowrap" }}>OTM Range:</span>
-                <input type="range" min={5} max={100} step={5} value={Math.round(maxMoneyness * 100)} onChange={(e) => setMaxMoneyness(Number(e.target.value) / 100)} style={{ flex: 1, accentColor: "#f59e0b", cursor: "pointer" }} />
-                <span style={{ color: "#f59e0b", fontWeight: "bold", fontSize: "0.9rem", minWidth: "3rem" }}>±{Math.round(maxMoneyness * 100)}%</span>
-                <button onClick={() => fetchOptions()} style={{ padding: "0.3rem 0.8rem", fontSize: "0.8rem", background: "#f59e0b", color: "#000", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", whiteSpace: "nowrap" }}>Apply</button>
-              </div>
-              */}
 
               {flagged.length === 0 ? (
                 <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
@@ -659,6 +856,21 @@ export default function App() {
 
           {/* Greeks tab */}
           {activeTab === "greeks" && <GreeksPanel initialSpot={spot} />}
+
+          {/* Footer disclaimer — subtle, always visible after search */}
+          <p
+            style={{
+              textAlign: "center",
+              color: "#2a2a2a",
+              fontSize: "0.72rem",
+              marginTop: "3rem",
+              lineHeight: 1.7,
+            }}
+          >
+            FlowSight is a decision-support tool, not a trading recommendation engine. UOA signals
+            reflect elevated activity — not confirmed directional intent. Always cross-reference
+            with price action and fundamentals before placing any trade.
+          </p>
         </>
       )}
     </div>
