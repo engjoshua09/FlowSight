@@ -65,9 +65,7 @@ def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        today = datetime.datetime.today().replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
         days = max((exp - today).days, 0)
         return max(days / 365, 1e-4)
     except Exception:
@@ -88,11 +86,7 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
         T = dte_to_years(c.get("expiration_date", ""))
 
         greeks_data = c.get("greeks") or {}
-        raw_sigma = (
-            greeks_data.get("mid_iv")
-            or c.get("smv_vol")
-            or c.get("implied_volatility")
-        )
+        raw_sigma = greeks_data.get("mid_iv") or c.get("smv_vol") or c.get("implied_volatility")
 
         iv_is_fallback = False
         try:
@@ -106,19 +100,19 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
 
         greeks = {}
         if spot > 0 and strike > 0:
-            greeks = compute_greeks(
-                spot, strike, T, RISK_FREE_RATE, sigma, option_type
-            )
+            greeks = compute_greeks(spot, strike, T, RISK_FREE_RATE, sigma, option_type)
 
-        enriched.append({
-            **c,
-            "type": c.get("option_type", ""),
-            "iv": round(sigma, 4),
-            "iv_is_fallback": iv_is_fallback,
-            "bid": c.get("bid") or 0,
-            "ask": c.get("ask") or 0,
-            **greeks
-        })
+        enriched.append(
+            {
+                **c,
+                "type": c.get("option_type", ""),
+                "iv": round(sigma, 4),
+                "iv_is_fallback": iv_is_fallback,
+                "bid": c.get("bid") or 0,
+                "ask": c.get("ask") or 0,
+                **greeks,
+            }
+        )
     return enriched
 
 
@@ -142,10 +136,7 @@ def compute_expected_move(contracts: list, spot: float, dte: int) -> dict | None
     if spot <= 0 or dte <= 0:
         return None
 
-    usable = [
-        c for c in contracts
-        if not c.get("iv_is_fallback") and c.get("strike")
-    ]
+    usable = [c for c in contracts if not c.get("iv_is_fallback") and c.get("strike")]
     if not usable:
         return None
 
@@ -240,22 +231,27 @@ async def get_options(
                 expirations = snapshot.get("expirations", [])
                 from_snapshot = True
             else:
-                raise HTTPException(
-                    status_code=404, detail=f"No options found for {ticker}"
-                )
+                raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
 
         if not from_snapshot:
-            await cache_set(raw_key, {
-                "contracts": contracts_raw,
-                "spot_price": spot,
-                "expirations": expirations,
-            })
-            if market_open and len(contracts_raw) > 10:
-                await cache_set(snap_key, {
+            await cache_set(
+                raw_key,
+                {
                     "contracts": contracts_raw,
                     "spot_price": spot,
                     "expirations": expirations,
-                }, ttl=SNAPSHOT_TTL_SECONDS)
+                },
+            )
+            if market_open and len(contracts_raw) > 10:
+                await cache_set(
+                    snap_key,
+                    {
+                        "contracts": contracts_raw,
+                        "spot_price": spot,
+                        "expirations": expirations,
+                    },
+                    ttl=SNAPSHOT_TTL_SECONDS,
+                )
 
     enriched = enrich_with_greeks(contracts_raw, spot)
     scored = score_contracts(enriched, spot, max_moneyness)
