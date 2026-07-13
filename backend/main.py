@@ -6,6 +6,7 @@ backend/main.py
 import asyncio
 import datetime
 import logging
+import math
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -16,7 +17,6 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from cache import (
-    SNAPSHOT_TTL_SECONDS,
     _redis,
     cache_delete,
     cache_get,
@@ -25,10 +25,11 @@ from cache import (
     init_cache,
     options_chain_key,
     snapshot_key,
+    SNAPSHOT_TTL_SECONDS,
 )
 from greeks import compute_greeks
 from tradier import get_options_chain
-from uoa import compute_call_put_ratio, score_contracts
+from uoa import compute_call_put_ratio, compute_dte, score_contracts
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,9 @@ def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
         exp = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-        today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = datetime.datetime.today().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         days = max((exp - today).days, 0)
         return max(days / 365, 1e-4)
     except Exception:
@@ -72,7 +75,12 @@ def dte_to_years(expiration_date: str) -> float:
 
 
 def enrich_with_greeks(contracts: list, spot: float) -> list:
-    """Add delta/gamma/theta/vega to each raw Tradier contract dict."""
+    """
+    Add delta/gamma/theta/vega to each raw Tradier contract dict.
+    Also tags whether IV had to fall back to the 0.3 default, so downstream
+    calculations (like expected move) can exclude fabricated IV values
+    rather than silently averaging them in with real market data.
+    """
     enriched = []
     for c in contracts:
         strike = c.get("strike", 0)
@@ -80,30 +88,81 @@ def enrich_with_greeks(contracts: list, spot: float) -> list:
         T = dte_to_years(c.get("expiration_date", ""))
 
         greeks_data = c.get("greeks") or {}
-        sigma = greeks_data.get("mid_iv") or c.get("smv_vol") or c.get("implied_volatility") or 0.3
+        raw_sigma = (
+            greeks_data.get("mid_iv")
+            or c.get("smv_vol")
+            or c.get("implied_volatility")
+        )
 
+        iv_is_fallback = False
         try:
-            sigma = float(sigma)
+            sigma = float(raw_sigma)
             if sigma <= 0 or sigma > 5:
                 sigma = 0.3
+                iv_is_fallback = True
         except (TypeError, ValueError):
             sigma = 0.3
+            iv_is_fallback = True
 
         greeks = {}
         if spot > 0 and strike > 0:
-            greeks = compute_greeks(spot, strike, T, RISK_FREE_RATE, sigma, option_type)
+            greeks = compute_greeks(
+                spot, strike, T, RISK_FREE_RATE, sigma, option_type
+            )
 
-        enriched.append(
-            {
-                **c,
-                "type": c.get("option_type", ""),
-                "iv": round(sigma, 4),
-                "bid": c.get("bid") or 0,
-                "ask": c.get("ask") or 0,
-                **greeks,
-            }
-        )
+        enriched.append({
+            **c,
+            "type": c.get("option_type", ""),
+            "iv": round(sigma, 4),
+            "iv_is_fallback": iv_is_fallback,
+            "bid": c.get("bid") or 0,
+            "ask": c.get("ask") or 0,
+            **greeks
+        })
     return enriched
+
+
+def compute_expected_move(contracts: list, spot: float, dte: int) -> dict | None:
+    """
+    Estimates a 1-standard-deviation expected move range using ATM implied
+    volatility (the contract closest to spot), not a chain-wide average.
+
+    Averaging IV across every strike would blend in volatility skew and
+    distort the estimate. Contracts where IV fell back to the 0.3 default
+    (see enrich_with_greeks) are excluded entirely, so a fabricated guess
+    never quietly contaminates a figure meant to represent what the market
+    is actually pricing.
+
+    Uses the full formula (spot * IV * sqrt(dte / 252)) rather than the
+    common "IV / 16" shortcut, since that shortcut only holds at DTE=1 and
+    silently produces the wrong answer for any other expiry.
+
+    Returns None if there's no usable ATM IV or DTE to work from.
+    """
+    if spot <= 0 or dte <= 0:
+        return None
+
+    usable = [
+        c for c in contracts
+        if not c.get("iv_is_fallback") and c.get("strike")
+    ]
+    if not usable:
+        return None
+
+    min_distance = min(abs(c["strike"] - spot) for c in usable)
+    atm_contracts = [c for c in usable if abs(c["strike"] - spot) == min_distance]
+    atm_iv = sum(c["iv"] for c in atm_contracts) / len(atm_contracts)
+
+    move = spot * atm_iv * math.sqrt(dte / 252)
+
+    return {
+        "atm_iv": round(atm_iv, 4),
+        "atm_strike": atm_contracts[0]["strike"],
+        "dte_used": dte,
+        "expected_move": round(move, 2),
+        "low": round(spot - move, 2),
+        "high": round(spot + move, 2),
+    }
 
 
 @asynccontextmanager
@@ -142,13 +201,8 @@ async def get_options(
     max_moneyness: float = Query(default=0.30, ge=0.05, le=1.0),
 ):
     """
-    Returns Greeks + UOA scores for all contracts on the selected expiry.
-    max_moneyness controls how far OTM/ITM contracts are included (0.05 to 1.0).
-    Default is 0.30 (30% from spot).
-
-    UOA scoring uses a cross-sectional Z-score: each contract's volume is
-    compared against every other contract in the same chain today, not
-    against external historical data. See uoa.py for why.
+    Returns Greeks + UOA scores for all contracts on the selected expiry,
+    plus an ATM-IV-derived expected move range for the underlying.
 
     A Tradier request that raises an exception is a 502 (upstream failure).
     A Tradier request that succeeds but returns zero contracts is a 404,
@@ -186,31 +240,29 @@ async def get_options(
                 expirations = snapshot.get("expirations", [])
                 from_snapshot = True
             else:
-                raise HTTPException(status_code=404, detail=f"No options found for {ticker}")
+                raise HTTPException(
+                    status_code=404, detail=f"No options found for {ticker}"
+                )
 
         if not from_snapshot:
-            await cache_set(
-                raw_key,
-                {
+            await cache_set(raw_key, {
+                "contracts": contracts_raw,
+                "spot_price": spot,
+                "expirations": expirations,
+            })
+            if market_open and len(contracts_raw) > 10:
+                await cache_set(snap_key, {
                     "contracts": contracts_raw,
                     "spot_price": spot,
                     "expirations": expirations,
-                },
-            )
-            if market_open and len(contracts_raw) > 10:
-                await cache_set(
-                    snap_key,
-                    {
-                        "contracts": contracts_raw,
-                        "spot_price": spot,
-                        "expirations": expirations,
-                    },
-                    ttl=SNAPSHOT_TTL_SECONDS,
-                )
+                }, ttl=SNAPSHOT_TTL_SECONDS)
 
     enriched = enrich_with_greeks(contracts_raw, spot)
     scored = score_contracts(enriched, spot, max_moneyness)
     bias = compute_call_put_ratio(enriched)
+
+    dte_for_move = compute_dte(contracts_raw[0]["expiration_date"]) if contracts_raw else 0
+    expected_move = compute_expected_move(enriched, spot, dte_for_move)
 
     return {
         "ticker": ticker,
@@ -223,6 +275,7 @@ async def get_options(
         "cache_hit": cache_hit,
         "market_open": market_open,
         "from_snapshot": from_snapshot,
+        "expected_move": expected_move,
         "contracts": scored,
     }
 
