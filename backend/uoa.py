@@ -100,7 +100,6 @@ def score_contracts(
         volume = c.get("volume") or 0
         open_interest = c.get("open_interest") or 0
         expiration = c.get("expiration_date", "")
-        # option_type = c.get("option_type", "")
         strike = c.get("strike") or 0
 
         if volume < MIN_ABSOLUTE_VOLUME:
@@ -112,7 +111,11 @@ def score_contracts(
             if moneyness > max_moneyness:
                 continue
 
-            dte = compute_dte(expiration)
+        # Fixed: was previously nested inside the `if spot > 0 and strike > 0`
+        # block above, so dte was never assigned when spot was 0 (e.g. a
+        # yfinance failure) — that threw a NameError below and crashed the
+        # whole request. Now computed unconditionally for every contract.
+        dte = compute_dte(expiration)
 
         uoa_score = compute_uoa_score(volume, open_interest, population_volumes)
         vol_oi_ratio = compute_volume_oi_ratio(volume, open_interest)
@@ -123,7 +126,13 @@ def score_contracts(
         mid_price = (bid + ask) / 2 if bid > 0 and ask > 0 else 0
         notional_value = round(volume * mid_price * 100, 2)  # 100 = contract multiplier
 
-        is_flagged = uoa_score >= MIN_UOA_SCORE and dte <= MAX_DTE and volume > 0
+        # A contract with no usable bid/ask has no real notional value behind
+        # it — it shouldn't be able to outrank genuinely large positions just
+        # because its Vol/OI ratio happens to look extreme. Requiring real
+        # dollar size before flagging keeps the signal meaningful.
+        is_flagged = (
+            uoa_score >= MIN_UOA_SCORE and dte <= MAX_DTE and volume > 0 and notional_value > 0
+        )
 
         scored.append(
             {

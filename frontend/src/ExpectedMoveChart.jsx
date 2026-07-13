@@ -6,6 +6,7 @@ import {
   ZAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
@@ -36,6 +37,25 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
       notional_value: c.notional_value || 1,
     }));
 
+  // Domain covers every visible point (flagged strikes, the expected move
+  // band, and spot itself) with proportional padding, rather than a fixed
+  // dollar amount — a flat $10 pad is invisible on a $700 stock and huge on
+  // a $20 one. Basing it on the actual data range, not an arbitrary sigma
+  // multiple, means it stays correct even if max_moneyness is set wide
+  // enough to legitimately flag a far-OTM contract.
+  const allStrikes = [
+    ...calls.map((c) => c.strike),
+    ...puts.map((c) => c.strike),
+    expectedMove.low,
+    expectedMove.high,
+    spot,
+  ];
+  const minStrike = Math.min(...allStrikes);
+  const maxStrike = Math.max(...allStrikes);
+  const range = maxStrike - minStrike;
+  const padding = range > 0 ? range * 0.08 : spot * 0.05;
+  const xDomain = [minStrike - padding, maxStrike + padding];
+
   return (
     <div
       style={{
@@ -53,14 +73,14 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
         {(expectedMove.atm_iv * 100).toFixed(1)}% · {expectedMove.dte_used}D)
       </div>
 
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={340}>
         <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
           <CartesianGrid stroke="#222" />
           <XAxis
             type="number"
             dataKey="strike"
             name="Strike"
-            domain={["dataMin - 10", "dataMax + 10"]}
+            domain={xDomain}
             stroke="#666"
             tick={{ fill: "#888", fontSize: 11 }}
           />
@@ -80,6 +100,12 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
               return [value, name];
             }}
           />
+          <Legend
+            wrapperStyle={{ fontSize: "0.78rem", color: "#888" }}
+            formatter={(value) => (
+              <span style={{ color: value === "Calls" ? "#00d4aa" : "#ff6b6b" }}>{value}</span>
+            )}
+          />
           <ReferenceArea
             x1={expectedMove.low}
             x2={expectedMove.high}
@@ -93,10 +119,39 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
             }}
           />
           <ReferenceLine
+            x={expectedMove.low}
+            stroke="#00d4aa"
+            strokeDasharray="2 2"
+            strokeOpacity={0.5}
+            label={{
+              value: `$${expectedMove.low.toLocaleString()}`,
+              position: "insideBottomLeft",
+              fill: "#00d4aa",
+              fontSize: 10,
+            }}
+          />
+          <ReferenceLine
+            x={expectedMove.high}
+            stroke="#00d4aa"
+            strokeDasharray="2 2"
+            strokeOpacity={0.5}
+            label={{
+              value: `$${expectedMove.high.toLocaleString()}`,
+              position: "insideBottomRight",
+              fill: "#00d4aa",
+              fontSize: 10,
+            }}
+          />
+          <ReferenceLine
             x={spot}
             stroke="#fff"
             strokeDasharray="4 4"
-            label={{ value: "Spot", position: "top", fill: "#fff", fontSize: 11 }}
+            label={{
+              value: `Spot $${spot.toFixed(2)}`,
+              position: "top",
+              fill: "#fff",
+              fontSize: 11,
+            }}
           />
           <Scatter name="Calls" data={calls} fill="#00d4aa" />
           <Scatter name="Puts" data={puts} fill="#ff6b6b" />
