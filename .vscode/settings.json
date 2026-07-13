@@ -1,0 +1,9 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "black-formatter.args": ["--line-length", "100"],
+  "prettier.configPath": "./frontend/.prettierrc"
+}
