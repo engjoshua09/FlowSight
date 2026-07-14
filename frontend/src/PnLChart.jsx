@@ -11,8 +11,8 @@ import {
 } from "recharts";
 
 export default function PnLChart({ strike, spot, premium, optType }) {
-  const low = Math.min(spot, strike) * 0.6;
-  const high = Math.max(spot, strike) * 1.4;
+  const low = Math.round(Math.min(spot, strike) * 0.6 * 100) / 100;
+  const high = Math.round(Math.max(spot, strike) * 1.4 * 100) / 100;
   const points = 60;
   const step = (high - low) / points;
 
@@ -60,18 +60,12 @@ export default function PnLChart({ strike, spot, premium, optType }) {
         <PnlStat label="Max Loss" value={`$${maxLoss.toFixed(2)}`} color="#ff6b6b" />
       </div>
 
-      {/* Legend for the reference lines, instead of inline chart labels.
-          Strike, Spot, and Break-even can land arbitrarily close together
-          depending on real inputs, so on-chart text labels will always
-          eventually crowd. Colour-coded lines plus a fixed legend key
-          means the labelling stays readable no matter how close the
-          underlying values get. */}
       <div
         style={{
           display: "flex",
-          gap: "1.25rem",
-          marginBottom: "0.6rem",
-          fontSize: "0.75rem",
+          flexWrap: "wrap",
+          gap: "0.6rem",
+          marginBottom: "0.85rem",
         }}
       >
         <LegendItem color="#f59e0b" label="Strike" />
@@ -88,6 +82,7 @@ export default function PnLChart({ strike, spot, premium, optType }) {
             domain={[low, high]}
             stroke="#666"
             tick={{ fill: "#a8a8b8", fontSize: 11 }}
+            tickFormatter={(value) => `$${Number(value).toFixed(2)}`}
           />
           <YAxis type="number" stroke="#666" tick={{ fill: "#a8a8b8", fontSize: 11 }} />
           <Tooltip
@@ -115,15 +110,26 @@ export default function PnLChart({ strike, spot, premium, optType }) {
 
 function LegendItem({ color, label }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+        padding: "0.35rem 0.7rem",
+        background: `${color}20`,
+        border: `1px solid ${color}66`,
+        borderRadius: "6px",
+      }}
+    >
       <div
         style={{
-          width: "16px",
-          height: "0",
-          borderTop: `2px dashed ${color}`,
+          width: "18px",
+          height: "3px",
+          borderRadius: "2px",
+          background: color,
         }}
       />
-      <span style={{ color: "#a8a8b8" }}>{label}</span>
+      <span style={{ color, fontSize: "0.85rem", fontWeight: "bold" }}>{label}</span>
     </div>
   );
 }
