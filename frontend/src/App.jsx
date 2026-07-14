@@ -81,6 +81,7 @@ export default function App() {
   const [minVolume, setMinVolume] = useState(0);
   const [selectedExpiry, setSelectedExpiry] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [hoveredContract, setHoveredContract] = useState(null);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -844,12 +845,13 @@ export default function App() {
                 flaggedContracts={flagged}
                 expectedMove={data.expected_move}
                 spot={spot}
+                onHoverContract={setHoveredContract}
               />
 
               {flagged.length === 0 ? (
                 <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
               ) : (
-                <UOATable contracts={flagged} />
+                <UOATable contracts={flagged} highlightContract={hoveredContract} />
               )}
             </>
           )}

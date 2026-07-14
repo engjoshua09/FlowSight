@@ -30,7 +30,7 @@ const COLUMNS = [
   { accessorKey: "uoa_score", header: "UOA Score", sortingFn: "basic" },
 ];
 
-export default function UOATable({ contracts }) {
+export default function UOATable({ contracts, highlightContract }) {
   const [sorting, setSorting] = useState([{ id: "uoa_score", desc: true }]);
 
   const table = useReactTable({
@@ -44,13 +44,7 @@ export default function UOATable({ contracts }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table
-        style={{
-          borderCollapse: "collapse",
-          width: "100%",
-          fontSize: "0.85rem",
-        }}
-      >
+      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "0.85rem" }}>
         <thead>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
@@ -81,30 +75,43 @@ export default function UOATable({ contracts }) {
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row, i) => (
-            <tr key={row.id} style={{ background: i % 2 === 0 ? "#111" : "#151515" }}>
-              {row.getVisibleCells().map((cell) => {
-                const colId = cell.column.id;
-                const val = cell.getValue();
-                let color = "#ddd";
-                if (colId === "type") color = val === "call" ? "#00d4aa" : "#ff6b6b";
-                if (colId === "uoa_score") color = "#f59e0b";
-                return (
-                  <td
-                    key={cell.id}
-                    style={{
-                      padding: "0.4rem 0.8rem",
-                      border: "1px solid #222",
-                      textAlign: "right",
-                      color,
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {table.getRowModel().rows.map((row, i) => {
+            const isHighlighted =
+              highlightContract &&
+              row.original.strike === highlightContract.strike &&
+              row.original.type === highlightContract.type;
+            return (
+              <tr
+                key={row.id}
+                style={{
+                  background: isHighlighted ? "#2a2410" : i % 2 === 0 ? "#111" : "#151515",
+                  outline: isHighlighted ? "1px solid #f59e0b" : "none",
+                  transition: "background 0.1s ease",
+                }}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const colId = cell.column.id;
+                  const val = cell.getValue();
+                  let color = "#ddd";
+                  if (colId === "type") color = val === "call" ? "#00d4aa" : "#ff6b6b";
+                  if (colId === "uoa_score") color = "#f59e0b";
+                  return (
+                    <td
+                      key={cell.id}
+                      style={{
+                        padding: "0.4rem 0.8rem",
+                        border: "1px solid #222",
+                        textAlign: "right",
+                        color,
+                      }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

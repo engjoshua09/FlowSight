@@ -12,10 +12,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot }) {
+export default function ExpectedMoveChart({
+  flaggedContracts,
+  expectedMove,
+  spot,
+  onHoverContract,
+}) {
   if (!expectedMove) {
     return (
-      <p style={{ color: "#666", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
+      <p style={{ color: "#a8a8b8", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
         Expected move range unavailable — no usable ATM implied volatility for this expiry.
       </p>
     );
@@ -25,6 +30,7 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
     .filter((c) => c.type === "call")
     .map((c) => ({
       strike: c.strike,
+      type: "call",
       uoa_score: c.uoa_score,
       notional_value: c.notional_value || 1,
     }));
@@ -33,16 +39,11 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
     .filter((c) => c.type === "put")
     .map((c) => ({
       strike: c.strike,
+      type: "put",
       uoa_score: c.uoa_score,
       notional_value: c.notional_value || 1,
     }));
 
-  // Domain covers every visible point (flagged strikes, the expected move
-  // band, and spot itself) with proportional padding, rather than a fixed
-  // dollar amount — a flat $10 pad is invisible on a $700 stock and huge on
-  // a $20 one. Basing it on the actual data range, not an arbitrary sigma
-  // multiple, means it stays correct even if max_moneyness is set wide
-  // enough to legitimately flag a far-OTM contract.
   const allStrikes = [
     ...calls.map((c) => c.strike),
     ...puts.map((c) => c.strike),
@@ -56,6 +57,14 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
   const padding = range > 0 ? range * 0.08 : spot * 0.05;
   const xDomain = [minStrike - padding, maxStrike + padding];
 
+  function handleEnter(payload) {
+    if (onHoverContract) onHoverContract({ strike: payload.strike, type: payload.type });
+  }
+
+  function handleLeave() {
+    if (onHoverContract) onHoverContract(null);
+  }
+
   return (
     <div
       style={{
@@ -66,15 +75,15 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
         borderRadius: "8px",
       }}
     >
-      <div style={{ marginBottom: "0.75rem", color: "#888", fontSize: "0.85rem" }}>
+      <div style={{ marginBottom: "0.75rem", color: "#a8a8b8", fontSize: "0.85rem" }}>
         <strong style={{ color: "#f59e0b" }}>Expected Move Range:</strong> $
         {expectedMove.low.toLocaleString()} – ${expectedMove.high.toLocaleString()} (±$
         {expectedMove.expected_move.toLocaleString()}, 1σ · ATM IV{" "}
         {(expectedMove.atm_iv * 100).toFixed(1)}% · {expectedMove.dte_used}D)
       </div>
 
-      <ResponsiveContainer width="100%" height={340}>
-        <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+      <ResponsiveContainer width="100%" height={360}>
+        <ScatterChart margin={{ top: 40, right: 20, bottom: 10, left: 0 }}>
           <CartesianGrid stroke="#222" />
           <XAxis
             type="number"
@@ -82,14 +91,14 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
             name="Strike"
             domain={xDomain}
             stroke="#666"
-            tick={{ fill: "#888", fontSize: 11 }}
+            tick={{ fill: "#a8a8b8", fontSize: 11 }}
           />
           <YAxis
             type="number"
             dataKey="uoa_score"
             name="UOA Score"
             stroke="#666"
-            tick={{ fill: "#888", fontSize: 11 }}
+            tick={{ fill: "#a8a8b8", fontSize: 11 }}
           />
           <ZAxis type="number" dataKey="notional_value" range={[60, 600]} name="Notional" />
           <Tooltip
@@ -101,7 +110,7 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
             }}
           />
           <Legend
-            wrapperStyle={{ fontSize: "0.78rem", color: "#888" }}
+            wrapperStyle={{ fontSize: "0.78rem", color: "#a8a8b8" }}
             formatter={(value) => (
               <span style={{ color: value === "Calls" ? "#00d4aa" : "#ff6b6b" }}>{value}</span>
             )}
@@ -153,12 +162,24 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
               fontSize: 11,
             }}
           />
-          <Scatter name="Calls" data={calls} fill="#00d4aa" />
-          <Scatter name="Puts" data={puts} fill="#ff6b6b" />
+          <Scatter
+            name="Calls"
+            data={calls}
+            fill="#00d4aa"
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+          />
+          <Scatter
+            name="Puts"
+            data={puts}
+            fill="#ff6b6b"
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+          />
         </ScatterChart>
       </ResponsiveContainer>
 
-      <p style={{ color: "#555", fontSize: "0.75rem", marginTop: "0.5rem" }}>
+      <p style={{ color: "#a8a8b8", fontSize: "0.75rem", marginTop: "0.5rem" }}>
         Bubble size reflects notional dollar value. Position shows strike relative to the market's
         own expected move range — this is not a price prediction, and no single contract is weighted
         as more likely to occur than another.
