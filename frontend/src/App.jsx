@@ -232,12 +232,13 @@ export default function App() {
   let skewNote = "";
   if (data?.implied_bias) {
     if (notionalSkew === "balanced") {
-      skewNote = `roughly balanced by dollar value, despite today's ${data.implied_bias} chain-wide bias.`;
+      skewNote = `Roughly balanced by dollar value, despite today's ${data.implied_bias} chain-wide bias.`;
     } else {
       const agrees =
         (notionalSkew === "call-heavy" && data.implied_bias === "bullish") ||
         (notionalSkew === "put-heavy" && data.implied_bias === "bearish");
-      skewNote = `${notionalSkew} by dollar value, ${agrees ? "consistent with" : "diverging from"} today's ${data.implied_bias} chain-wide bias.`;
+      const skewLabel = notionalSkew === "call-heavy" ? "Call-heavy" : "Put-heavy";
+      skewNote = `${skewLabel} by dollar value, ${agrees ? "consistent with" : "diverging from"} today's ${data.implied_bias} chain-wide bias.`;
     }
   }
 
@@ -496,7 +497,7 @@ export default function App() {
       {/* ── Loading / Error ───────────────────────────────────────────── */}
       {loading && <p style={{ color: "#888", textAlign: "center" }}>Loading options chain…</p>}
       {error && (
-        <p style={{ color: "#ff4444", textAlign: "center" }}>⚠ {error} — is the backend running?</p>
+        <p style={{ color: "#ff4444", textAlign: "center" }}>⚠ {error}, is the backend running?</p>
       )}
 
       {/* ── Feature cards — landing only ─────────────────────────────── */}
@@ -567,8 +568,8 @@ export default function App() {
             }}
           >
             FlowSight is a decision-support tool, not a trading recommendation engine. UOA signals
-            reflect elevated activity — not confirmed directional intent. Always cross-reference
-            with price action and fundamentals before placing any trade.
+            reflect elevated activity, not confirmed directional intent. Always cross-reference with
+            price action and fundamentals before placing any trade.
           </p>
         </>
       )}
@@ -613,19 +614,19 @@ export default function App() {
               {data.market_open === false ? (
                 <>
                   <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🌙</div>
-                  <div style={{ color: "#888", fontSize: "1rem", marginBottom: "0.25rem" }}>
+                  <div style={{ color: "#a8a8b8", fontSize: "1rem", marginBottom: "0.25rem" }}>
                     Market is currently closed
                   </div>
-                  <div style={{ color: "#555", fontSize: "0.85rem" }}>
-                    US markets open Monday–Friday, 9:30am–4:00pm ET (9:30pm–4:00am SGT). No Options
-                    Data available yet for {data.ticker} — Please search during market hours
+                  <div style={{ color: "#a8a8b8", fontSize: "0.85rem" }}>
+                    US markets open Monday to Friday, 9:30am to 4:00pm ET (9:30pm to 4:00am SGT). No
+                    Options Data available yet for {data.ticker}. Please search during market hours
                     instead.
                   </div>
                 </>
               ) : (
                 <>
                   <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
-                  <div style={{ color: "#888", fontSize: "1rem" }}>
+                  <div style={{ color: "#a8a8b8", fontSize: "1rem" }}>
                     No contracts found for {data.ticker}. Try refreshing or check the ticker.
                   </div>
                 </>
@@ -646,7 +647,7 @@ export default function App() {
                 fontSize: "0.82rem",
               }}
             >
-              📸 Showing last market-hours snapshot — market is currently closed. Data was captured
+              📸 Showing last market-hours snapshot. Market is currently closed. Data was captured
               during today&apos;s trading session.
             </div>
           )}
@@ -728,8 +729,8 @@ export default function App() {
                     {f.label}
                   </button>
                 ))}
-                <span style={{ color: "#555", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
-                  {sortedChain.length} contracts — centred around spot ${spot.toFixed(2)}
+                <span style={{ color: "#a8a8b8", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
+                  {sortedChain.length} contracts, centred around spot ${spot.toFixed(2)}
                 </span>
               </div>
               <OptionsTable contracts={sortedChain} spotPrice={spot} />
@@ -752,7 +753,7 @@ export default function App() {
               >
                 <summary
                   style={{
-                    color: "#888",
+                    color: "#a8a8b8",
                     fontSize: "0.85rem",
                     fontWeight: "bold",
                     listStyle: "none",
@@ -763,7 +764,7 @@ export default function App() {
                 <div
                   style={{
                     marginTop: "0.75rem",
-                    color: "#666",
+                    color: "#a8a8b8",
                     fontSize: "0.82rem",
                     lineHeight: 1.7,
                   }}
@@ -774,27 +775,27 @@ export default function App() {
                     </strong>
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#aaa" }}>Volume/OI Ratio</strong> — measures how much
+                    <strong style={{ color: "#c4c4d0" }}>Volume/OI Ratio:</strong> measures how much
                     new activity is happening relative to existing positions. A ratio above 1.0
                     means more contracts traded today than currently exist as open positions.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ color: "#aaa" }}>Z-Score</strong> — measures how many standard
-                    deviations above the 30-day average today&apos;s volume is. A Z-score above 2.0
-                    means today&apos;s volume is statistically unusual.
+                    <strong style={{ color: "#c4c4d0" }}>Z-Score:</strong> measures how many
+                    standard deviations above the 30-day average today&apos;s volume is. A Z-score
+                    above 2.0 means today&apos;s volume is statistically unusual.
                   </p>
                   <p style={{ marginBottom: "0.5rem" }}>
                     <strong style={{ color: "#f59e0b" }}>Flagged</strong> when UOA Score &gt; 3,
                     volume &gt; 100, open interest &gt; 50, and DTE ≤ 30 days.
                   </p>
-                  <p style={{ color: "#555" }}>
+                  <p style={{ color: "#a8a8b8" }}>
                     ⚠ High UOA does not confirm directional intent. Activity may reflect hedging,
                     spread construction, or position rolling.
                   </p>
-                  <p style={{ color: "#555", marginTop: "0.5rem" }}>
+                  <p style={{ color: "#a8a8b8", marginTop: "0.5rem" }}>
                     ℹ These signals reflect only the {selectedExpiry || "selected"} expiry currently
                     chosen above. Switch expiries to see how unusual activity differs across
-                    timeframes — signals concentrated in a single near-dated expiry often reflect
+                    timeframes. Signals concentrated in a single near-dated expiry often reflect
                     hedging rather than sustained positioning.
                   </p>
                 </div>
@@ -813,7 +814,7 @@ export default function App() {
                 }}
               >
                 ⚠ Elevated activity may reflect directional positioning, hedging, or spread
-                construction. These are signals for further research — not trading recommendations.
+                construction. These are signals for further research, not trading recommendations.
               </div>
 
               {/* Notional-weighted skew summary — Nat's logic */}
@@ -836,7 +837,7 @@ export default function App() {
                   <span style={{ color: "#ff6b6b" }}>
                     {flaggedPuts} puts ({formatNotionalShort(flaggedPutNotional)})
                   </span>
-                  {skewNote && <span style={{ color: "#666" }}> — {skewNote}</span>}
+                  {skewNote && <span style={{ color: "#a8a8b8" }}> {skewNote}</span>}
                 </div>
               )}
 
@@ -849,7 +850,7 @@ export default function App() {
               />
 
               {flagged.length === 0 ? (
-                <p style={{ color: "#888" }}>No flagged contracts for {data.ticker}.</p>
+                <p style={{ color: "#a8a8b8" }}>No flagged contracts for {data.ticker}.</p>
               ) : (
                 <UOATable contracts={flagged} highlightContract={hoveredContract} />
               )}
@@ -870,8 +871,8 @@ export default function App() {
             }}
           >
             FlowSight is a decision-support tool, not a trading recommendation engine. UOA signals
-            reflect elevated activity — not confirmed directional intent. Always cross-reference
-            with price action and fundamentals before placing any trade.
+            reflect elevated activity, not confirmed directional intent. Always cross-reference with
+            price action and fundamentals before placing any trade.
           </p>
         </>
       )}
@@ -884,7 +885,7 @@ function Stat({ label, value, color = "#fff" }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
       <span
         style={{
-          color: "#666",
+          color: "#a8a8b8",
           fontSize: "0.75rem",
           textTransform: "uppercase",
           letterSpacing: "0.05em",

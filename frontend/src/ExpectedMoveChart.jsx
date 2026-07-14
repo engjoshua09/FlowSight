@@ -21,7 +21,7 @@ export default function ExpectedMoveChart({
   if (!expectedMove) {
     return (
       <p style={{ color: "#a8a8b8", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-        Expected move range unavailable — no usable ATM implied volatility for this expiry.
+        Expected move range unavailable. No usable ATM implied volatility for this expiry.
       </p>
     );
   }
@@ -77,9 +77,9 @@ export default function ExpectedMoveChart({
     >
       <div style={{ marginBottom: "0.75rem", color: "#a8a8b8", fontSize: "0.85rem" }}>
         <strong style={{ color: "#f59e0b" }}>Expected Move Range:</strong> $
-        {expectedMove.low.toLocaleString()} – ${expectedMove.high.toLocaleString()} (±$
-        {expectedMove.expected_move.toLocaleString()}, 1σ · ATM IV{" "}
-        {(expectedMove.atm_iv * 100).toFixed(1)}% · {expectedMove.dte_used}D)
+        {expectedMove.low.toLocaleString()} to ${expectedMove.high.toLocaleString()} (±$
+        {expectedMove.expected_move.toLocaleString()}, 1σ, ATM IV{" "}
+        {(expectedMove.atm_iv * 100).toFixed(1)}%, {expectedMove.dte_used}D)
       </div>
 
       <ResponsiveContainer width="100%" height={360}>
@@ -181,7 +181,7 @@ export default function ExpectedMoveChart({
 
       <p style={{ color: "#a8a8b8", fontSize: "0.75rem", marginTop: "0.5rem" }}>
         Bubble size reflects notional dollar value. Position shows strike relative to the market's
-        own expected move range — this is not a price prediction, and no single contract is weighted
+        own expected move range. This is not a price prediction, and no single contract is weighted
         as more likely to occur than another.
       </p>
     </div>
