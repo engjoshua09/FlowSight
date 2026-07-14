@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import PnLChart from "./PnLChart";
 
-// erf approximation from Abramowitz and Stegun (formula 7.1.26)
 function erf(x) {
   const a1 = 0.254829592,
     a2 = -0.284496736,
@@ -23,8 +23,6 @@ function normPdf(x) {
   return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
 }
 
-// same Black-Scholes logic as greeks.py, just ported to JS
-// sigma comes in as a percentage (e.g. 30 = 30%) so divide by 100
 function computeGreeks(S, K, T_days, r, sigma, optionType) {
   const T = Math.max(T_days / 365, 1e-4);
   const s = Math.max(sigma / 100, 1e-4);
@@ -50,263 +48,312 @@ function computeGreeks(S, K, T_days, r, sigma, optionType) {
   };
 }
 
-export default function GreeksPanel({ initialSpot = 100 }) {
+export default function GreeksPanel({ initialSpot = 100, selectedContract = null, loadKey = 0 }) {
   const [spot, setSpot] = useState(Math.round(initialSpot || 100));
   const [strike, setStrike] = useState(Math.round(initialSpot || 100));
   const [iv, setIv] = useState(30);
   const [dte, setDte] = useState(30);
   const [optType, setOptType] = useState("call");
+  const [premium, setPremium] = useState(5);
 
-  // matches RISK_FREE_RATE in main.py
   const R = 0.053;
+
+  useEffect(() => {
+    if (!selectedContract) return;
+    setSpot(Math.round(selectedContract.spot || initialSpot || 100));
+    setStrike(Math.round(selectedContract.strike || 100));
+    setIv(selectedContract.iv || 30);
+    setDte(Math.max(selectedContract.dte || 1, 1));
+    setOptType(selectedContract.type === "put" ? "put" : "call");
+    setPremium(selectedContract.premium || 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadKey]);
+
+  // Slider ceilings derive from whatever's actually loaded, with 1000 as a
+  // floor so the default exploratory range is unchanged. Grows automatically
+  // for expensive stocks instead of needing a manually bumped constant every
+  // time a higher-priced ticker gets tested.
+  const sliderMax = useMemo(() => Math.max(1000, spot * 1.5, strike * 1.5), [spot, strike]);
+  const premiumMax = useMemo(() => Math.max(500, sliderMax * 0.5), [sliderMax]);
 
   const greeks = useMemo(
     () => computeGreeks(spot, strike, dte, R, iv, optType),
     [spot, strike, iv, dte, optType]
   );
 
-  // 2% buffer so ATM doesn't flicker when spot and strike are close
   const moneyness = spot > strike * 1.02 ? "ITM" : spot < strike * 0.98 ? "OTM" : "ATM";
 
   const moneynessColor =
     moneyness === "ITM" ? "#00d4aa" : moneyness === "OTM" ? "#ff6b6b" : "#f59e0b";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "1.5rem",
-        flexWrap: "wrap",
-        alignItems: "flex-start",
-      }}
-    >
+    <>
       <div
         style={{
-          flex: "1 1 320px",
-          minWidth: 280,
-          background: "#1a1a1a",
-          border: "1px solid #2a2a2a",
-          borderRadius: "10px",
-          padding: "1.25rem",
+          display: "flex",
+          gap: "1.5rem",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
         }}
       >
-        <p
-          style={{
-            color: "#666",
-            fontSize: "0.78rem",
-            marginBottom: "1.25rem",
-            lineHeight: 1.5,
-          }}
-        >
-          Adjust inputs to see how Greeks change in real time. Uses the same Black-Scholes model as
-          the backend.
-        </p>
-
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
-          {["call", "put"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setOptType(t)}
-              style={{
-                flex: 1,
-                padding: "0.5rem",
-                background: optType === t ? (t === "call" ? "#00d4aa" : "#ff6b6b") : "#111",
-                color: optType === t ? "#000" : "#666",
-                border: `1px solid ${optType === t ? (t === "call" ? "#00d4aa" : "#ff6b6b") : "#333"}`,
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontWeight: optType === t ? "bold" : "normal",
-                fontSize: "0.9rem",
-                textTransform: "capitalize",
-              }}
-            >
-              {t === "call" ? "📈 Call" : "📉 Put"}
-            </button>
-          ))}
-        </div>
-
-        <SliderField
-          label="Spot Price (S)"
-          value={spot}
-          setValue={setSpot}
-          min={10}
-          max={1000}
-          step={1}
-          display={`$${spot}`}
-          color="#fff"
-        />
-        <SliderField
-          label="Strike Price (K)"
-          value={strike}
-          setValue={setStrike}
-          min={10}
-          max={1000}
-          step={1}
-          display={`$${strike}`}
-          color="#fff"
-          badge={moneyness}
-          badgeColor={moneynessColor}
-        />
-        <SliderField
-          label="Implied Volatility (IV)"
-          value={iv}
-          setValue={setIv}
-          min={1}
-          max={200}
-          step={1}
-          display={`${iv}%`}
-          color="#a78bfa"
-        />
-        <SliderField
-          label="Days to Expiry (DTE)"
-          value={dte}
-          setValue={setDte}
-          min={1}
-          max={365}
-          step={1}
-          display={`${dte}d`}
-          color="#60a5fa"
-        />
-      </div>
-
-      <div style={{ flex: "1 1 280px", minWidth: 260 }}>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "0.75rem",
-            marginBottom: "0.75rem",
-          }}
-        >
-          <GreekCard
-            symbol="Δ"
-            name="Delta"
-            value={greeks.delta}
-            color="#a78bfa"
-            desc={
-              optType === "call"
-                ? "Prob. of expiring ITM / $ move per $1 stock rise"
-                : "$ move per $1 stock rise (negative for puts)"
-            }
-          />
-          <GreekCard
-            symbol="Γ"
-            name="Gamma"
-            value={greeks.gamma}
-            color="#60a5fa"
-            desc="Rate of delta change per $1 stock move"
-          />
-          <GreekCard
-            symbol="Θ"
-            name="Theta"
-            value={greeks.theta}
-            color="#f87171"
-            desc="Value lost per calendar day (time decay)"
-          />
-          <GreekCard
-            symbol="V"
-            name="Vega"
-            value={greeks.vega}
-            color="#34d399"
-            desc="Value change per 1% move in implied volatility"
-          />
-        </div>
-
-        <div
-          style={{
+            flex: "1 1 320px",
+            minWidth: 280,
             background: "#1a1a1a",
             border: "1px solid #2a2a2a",
-            borderRadius: "8px",
-            padding: "0.9rem",
+            borderRadius: "10px",
+            padding: "1.25rem",
           }}
         >
-          <div
+          <p
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "0.4rem",
+              color: "#666",
+              fontSize: "0.78rem",
+              marginBottom: "0.75rem",
+              lineHeight: 1.5,
             }}
           >
-            <span style={{ color: "#666", fontSize: "0.75rem" }}>DELTA EXPOSURE</span>
-            <span
+            Adjust inputs to see how Greeks and P&L change in real time. Uses the same Black-Scholes
+            model as the backend.
+          </p>
+
+          {selectedContract && (
+            <div
               style={{
-                color: "#a78bfa",
-                fontSize: "0.85rem",
-                fontWeight: "bold",
+                marginBottom: "1.25rem",
+                padding: "0.5rem 0.75rem",
+                background: "#0a1a18",
+                border: "1px solid #00d4aa44",
+                borderRadius: "6px",
+                fontSize: "0.75rem",
+                color: "#a8a8b8",
               }}
             >
-              {greeks.delta}
-            </span>
+              📥 Loaded from Full Chain: {selectedContract.strike}{" "}
+              {selectedContract.type?.toUpperCase()}, {selectedContract.dte}D, premium $
+              {selectedContract.premium?.toFixed(2)}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+            {["call", "put"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setOptType(t)}
+                style={{
+                  flex: 1,
+                  padding: "0.5rem",
+                  background: optType === t ? (t === "call" ? "#00d4aa" : "#ff6b6b") : "#111",
+                  color: optType === t ? "#000" : "#666",
+                  border: `1px solid ${optType === t ? (t === "call" ? "#00d4aa" : "#ff6b6b") : "#333"}`,
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: optType === t ? "bold" : "normal",
+                  fontSize: "0.9rem",
+                  textTransform: "capitalize",
+                }}
+              >
+                {t === "call" ? "📈 Call" : "📉 Put"}
+              </button>
+            ))}
           </div>
+
+          <SliderField
+            label="Spot Price (S)"
+            value={spot}
+            setValue={setSpot}
+            min={10}
+            max={sliderMax}
+            step={1}
+            display={`$${spot}`}
+            color="#fff"
+          />
+          <SliderField
+            label="Strike Price (K)"
+            value={strike}
+            setValue={setStrike}
+            min={10}
+            max={sliderMax}
+            step={1}
+            display={`$${strike}`}
+            color="#fff"
+            badge={moneyness}
+            badgeColor={moneynessColor}
+          />
+          <SliderField
+            label="Implied Volatility (IV)"
+            value={iv}
+            setValue={setIv}
+            min={1}
+            max={200}
+            step={1}
+            display={`${iv}%`}
+            color="#a78bfa"
+          />
+          <SliderField
+            label="Days to Expiry (DTE)"
+            value={dte}
+            setValue={setDte}
+            min={1}
+            max={365}
+            step={1}
+            display={`${dte}d`}
+            color="#60a5fa"
+          />
+          <SliderField
+            label="Premium Paid"
+            value={premium}
+            setValue={setPremium}
+            min={0}
+            max={premiumMax}
+            step={0.5}
+            display={`$${premium.toFixed(2)}`}
+            color="#34d399"
+          />
+        </div>
+
+        <div style={{ flex: "1 1 280px", minWidth: 260 }}>
           <div
             style={{
-              background: "#111",
-              borderRadius: "4px",
-              height: "8px",
-              overflow: "hidden",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.75rem",
+              marginBottom: "0.75rem",
+            }}
+          >
+            <GreekCard
+              symbol="Δ"
+              name="Delta"
+              value={greeks.delta}
+              color="#a78bfa"
+              desc={
+                optType === "call"
+                  ? "Prob. of expiring ITM / $ move per $1 stock rise"
+                  : "$ move per $1 stock rise (negative for puts)"
+              }
+            />
+            <GreekCard
+              symbol="Γ"
+              name="Gamma"
+              value={greeks.gamma}
+              color="#60a5fa"
+              desc="Rate of delta change per $1 stock move"
+            />
+            <GreekCard
+              symbol="Θ"
+              name="Theta"
+              value={greeks.theta}
+              color="#f87171"
+              desc="Value lost per calendar day (time decay)"
+            />
+            <GreekCard
+              symbol="V"
+              name="Vega"
+              value={greeks.vega}
+              color="#34d399"
+              desc="Value change per 1% move in implied volatility"
+            />
+          </div>
+
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #2a2a2a",
+              borderRadius: "8px",
+              padding: "0.9rem",
             }}
           >
             <div
               style={{
-                height: "100%",
-                borderRadius: "4px",
-                background: "#a78bfa",
-                width: `${Math.abs(parseFloat(greeks.delta)) * 100}%`,
-                transition: "width 0.15s ease",
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "0.4rem",
               }}
-            />
+            >
+              <span style={{ color: "#666", fontSize: "0.75rem" }}>DELTA EXPOSURE</span>
+              <span
+                style={{
+                  color: "#a78bfa",
+                  fontSize: "0.85rem",
+                  fontWeight: "bold",
+                }}
+              >
+                {greeks.delta}
+              </span>
+            </div>
+            <div
+              style={{
+                background: "#111",
+                borderRadius: "4px",
+                height: "8px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  borderRadius: "4px",
+                  background: "#a78bfa",
+                  width: `${Math.abs(parseFloat(greeks.delta)) * 100}%`,
+                  transition: "width 0.15s ease",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "0.3rem",
+              }}
+            >
+              <span style={{ color: "#444", fontSize: "0.7rem" }}>0</span>
+              <span style={{ color: "#444", fontSize: "0.7rem" }}>1.0</span>
+            </div>
           </div>
+
           <div
             style={{
+              marginTop: "0.75rem",
+              background: "#1a1a1a",
+              border: `1px solid ${moneynessColor}33`,
+              borderRadius: "8px",
+              padding: "0.75rem 1rem",
               display: "flex",
+              alignItems: "center",
               justifyContent: "space-between",
-              marginTop: "0.3rem",
             }}
           >
-            <span style={{ color: "#444", fontSize: "0.7rem" }}>0</span>
-            <span style={{ color: "#444", fontSize: "0.7rem" }}>1.0</span>
+            <span style={{ color: "#666", fontSize: "0.8rem" }}>Moneyness</span>
+            <span
+              style={{
+                color: moneynessColor,
+                fontWeight: "bold",
+                fontSize: "0.9rem",
+                background: `${moneynessColor}18`,
+                padding: "0.2rem 0.6rem",
+                borderRadius: "4px",
+              }}
+            >
+              {moneyness}{" "}
+              {optType === "call"
+                ? moneyness === "ITM"
+                  ? "Stock above strike"
+                  : moneyness === "OTM"
+                    ? "Stock below strike"
+                    : "Stock near strike"
+                : moneyness === "ITM"
+                  ? "Stock below strike"
+                  : moneyness === "OTM"
+                    ? "Stock above strike"
+                    : "Stock near strike"}
+            </span>
           </div>
         </div>
-
-        <div
-          style={{
-            marginTop: "0.75rem",
-            background: "#1a1a1a",
-            border: `1px solid ${moneynessColor}33`,
-            borderRadius: "8px",
-            padding: "0.75rem 1rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <span style={{ color: "#666", fontSize: "0.8rem" }}>Moneyness</span>
-          <span
-            style={{
-              color: moneynessColor,
-              fontWeight: "bold",
-              fontSize: "0.9rem",
-              background: `${moneynessColor}18`,
-              padding: "0.2rem 0.6rem",
-              borderRadius: "4px",
-            }}
-          >
-            {moneyness} —{" "}
-            {optType === "call"
-              ? moneyness === "ITM"
-                ? "Stock above strike"
-                : moneyness === "OTM"
-                  ? "Stock below strike"
-                  : "Stock near strike"
-              : moneyness === "ITM"
-                ? "Stock below strike"
-                : moneyness === "OTM"
-                  ? "Stock above strike"
-                  : "Stock near strike"}
-          </span>
-        </div>
       </div>
-    </div>
+
+      <PnLChart strike={strike} spot={spot} premium={premium} optType={optType} />
+    </>
   );
 }
 
@@ -384,7 +431,7 @@ function SliderField({
         }}
       >
         <span style={{ color: "#333", fontSize: "0.7rem" }}>{min}</span>
-        <span style={{ color: "#333", fontSize: "0.7rem" }}>{max}</span>
+        <span style={{ color: "#333", fontSize: "0.7rem" }}>{Math.round(max)}</span>
       </div>
     </div>
   );

@@ -82,6 +82,8 @@ export default function App() {
   const [selectedExpiry, setSelectedExpiry] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [hoveredContract, setHoveredContract] = useState(null);
+  const [selectedContract, setSelectedContract] = useState(null);
+  const [loadKey, setLoadKey] = useState(0);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -182,6 +184,23 @@ export default function App() {
     if (!ticker) return;
     const url = buildUrl(`${API_URL}/options/${ticker}/refresh`, selectedExpiry);
     fetchOptions(url);
+  }
+
+  function handleContractClick(contract) {
+    const mid =
+      contract.bid && contract.ask
+        ? (contract.bid + contract.ask) / 2
+        : contract.bid || contract.ask || 0;
+    setSelectedContract({
+      strike: contract.strike,
+      type: contract.type,
+      iv: Math.round((contract.iv || 0.3) * 100),
+      dte: Math.max(contract.dte || 1, 1),
+      premium: Math.round(mid * 100) / 100,
+      spot,
+    });
+    setLoadKey((k) => k + 1);
+    setActiveTab("greeks");
   }
 
   const spot = data?.spot_price ?? 0;
@@ -733,7 +752,11 @@ export default function App() {
                   {sortedChain.length} contracts, centred around spot ${spot.toFixed(2)}
                 </span>
               </div>
-              <OptionsTable contracts={sortedChain} spotPrice={spot} />
+              <OptionsTable
+                contracts={sortedChain}
+                spotPrice={spot}
+                onRowClick={handleContractClick}
+              />
             </>
           )}
 
@@ -858,7 +881,9 @@ export default function App() {
           )}
 
           {/* Greeks tab */}
-          {activeTab === "greeks" && <GreeksPanel initialSpot={spot} />}
+          {activeTab === "greeks" && (
+            <GreeksPanel initialSpot={spot} selectedContract={selectedContract} loadKey={loadKey} />
+          )}
 
           {/* Footer disclaimer — subtle, always visible after search */}
           <p
