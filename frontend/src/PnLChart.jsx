@@ -60,8 +60,27 @@ export default function PnLChart({ strike, spot, premium, optType }) {
         <PnlStat label="Max Loss" value={`$${maxLoss.toFixed(2)}`} color="#ff6b6b" />
       </div>
 
+      {/* Legend for the reference lines, instead of inline chart labels.
+          Strike, Spot, and Break-even can land arbitrarily close together
+          depending on real inputs, so on-chart text labels will always
+          eventually crowd. Colour-coded lines plus a fixed legend key
+          means the labelling stays readable no matter how close the
+          underlying values get. */}
+      <div
+        style={{
+          display: "flex",
+          gap: "1.25rem",
+          marginBottom: "0.6rem",
+          fontSize: "0.75rem",
+        }}
+      >
+        <LegendItem color="#f59e0b" label="Strike" />
+        <LegendItem color="#ffffff" label="Spot" />
+        <LegendItem color="#00d4aa" label="Break-even" />
+      </div>
+
       <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={data} margin={{ top: 30, right: 20, bottom: 10, left: 0 }}>
+        <LineChart data={data} margin={{ top: 15, right: 20, bottom: 10, left: 0 }}>
           <CartesianGrid stroke="#222" />
           <XAxis
             type="number"
@@ -79,24 +98,9 @@ export default function PnLChart({ strike, spot, premium, optType }) {
           <ReferenceArea y1={0} y2={yMax} fill="#00d4aa" fillOpacity={0.06} />
           <ReferenceArea y1={yMin} y2={0} fill="#ff6b6b" fillOpacity={0.06} />
           <ReferenceLine y={0} stroke="#555" />
-          <ReferenceLine
-            x={strike}
-            stroke="#f59e0b"
-            strokeDasharray="3 3"
-            label={{ value: "Strike", position: "top", fill: "#f59e0b", fontSize: 10 }}
-          />
-          <ReferenceLine
-            x={spot}
-            stroke="#fff"
-            strokeDasharray="4 4"
-            label={{ value: "Spot", position: "top", fill: "#fff", fontSize: 10 }}
-          />
-          <ReferenceLine
-            x={breakeven}
-            stroke="#00d4aa"
-            strokeDasharray="2 2"
-            label={{ value: "Break-even", position: "insideTop", fill: "#00d4aa", fontSize: 10 }}
-          />
+          <ReferenceLine x={strike} stroke="#f59e0b" strokeDasharray="3 3" />
+          <ReferenceLine x={spot} stroke="#ffffff" strokeDasharray="4 4" />
+          <ReferenceLine x={breakeven} stroke="#00d4aa" strokeDasharray="2 2" />
           <Line type="monotone" dataKey="pnl" stroke="#a78bfa" strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
@@ -105,6 +109,21 @@ export default function PnLChart({ strike, spot, premium, optType }) {
         Profit and loss at expiry for a long {optType}, assuming the position is held to expiration.
         Does not account for time decay or IV changes before then.
       </p>
+    </div>
+  );
+}
+
+function LegendItem({ color, label }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+      <div
+        style={{
+          width: "16px",
+          height: "0",
+          borderTop: `2px dashed ${color}`,
+        }}
+      />
+      <span style={{ color: "#a8a8b8" }}>{label}</span>
     </div>
   );
 }

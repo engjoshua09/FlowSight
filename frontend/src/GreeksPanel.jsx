@@ -56,25 +56,34 @@ export default function GreeksPanel({ initialSpot = 100, selectedContract = null
   const [optType, setOptType] = useState("call");
   const [premium, setPremium] = useState(5);
 
+  // Fixed at discrete moments only (mount, contract load), never derived
+  // from the live spot/strike state a slider is actively writing to.
+  // Deriving max from the same value it bounds creates a feedback loop:
+  // dragging raises max mid-gesture, which the browser reads as more room
+  // to move on the very next pointer tick, compounding into runaway
+  // numbers within a single drag.
+  const [sliderMax, setSliderMax] = useState(() => Math.max(1000, (initialSpot || 100) * 1.5));
+  const [premiumMax, setPremiumMax] = useState(() => Math.max(500, sliderMax * 0.5));
+
   const R = 0.053;
 
   useEffect(() => {
     if (!selectedContract) return;
-    setSpot(Math.round(selectedContract.spot || initialSpot || 100));
-    setStrike(Math.round(selectedContract.strike || 100));
+    const loadedSpot = selectedContract.spot || initialSpot || 100;
+    const loadedStrike = selectedContract.strike || 100;
+
+    setSpot(Math.round(loadedSpot));
+    setStrike(Math.round(loadedStrike));
     setIv(selectedContract.iv || 30);
     setDte(Math.max(selectedContract.dte || 1, 1));
     setOptType(selectedContract.type === "put" ? "put" : "call");
     setPremium(selectedContract.premium || 0);
+
+    const newMax = Math.max(1000, loadedSpot * 1.5, loadedStrike * 1.5);
+    setSliderMax(newMax);
+    setPremiumMax(Math.max(500, newMax * 0.5));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadKey]);
-
-  // Slider ceilings derive from whatever's actually loaded, with 1000 as a
-  // floor so the default exploratory range is unchanged. Grows automatically
-  // for expensive stocks instead of needing a manually bumped constant every
-  // time a higher-priced ticker gets tested.
-  const sliderMax = useMemo(() => Math.max(1000, spot * 1.5, strike * 1.5), [spot, strike]);
-  const premiumMax = useMemo(() => Math.max(500, sliderMax * 0.5), [sliderMax]);
 
   const greeks = useMemo(
     () => computeGreeks(spot, strike, dte, R, iv, optType),
