@@ -96,7 +96,8 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
             cursor={{ strokeDasharray: "3 3" }}
             contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: "0.8rem" }}
             formatter={(value, name) => {
-              if (name === "Notional") return [`$${Number(value).toLocaleString()}`, name];
+              if (name === "Notional")
+                return [`$${Number(value).toFixed(2).toLocaleString()}`, name];
               return [value, name];
             }}
           />
