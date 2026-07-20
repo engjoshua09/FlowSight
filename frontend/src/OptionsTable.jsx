@@ -12,6 +12,26 @@ const COLUMNS = [
   { accessorKey: "dte", header: "DTE", sortingFn: "basic" },
   { accessorKey: "bid", header: "Bid", sortingFn: "basic" },
   { accessorKey: "ask", header: "Ask", sortingFn: "basic" },
+  {
+    id: "spread",
+    header: "Spread",
+    accessorFn: (row) => (row.bid > 0 && row.ask > 0 ? row.ask - row.bid : null),
+    sortingFn: "basic",
+    cell: (info) => {
+      const v = info.getValue();
+      return v === null ? "–" : v.toFixed(2);
+    },
+  },
+  {
+    id: "mid",
+    header: "Mid",
+    accessorFn: (row) => (row.bid > 0 && row.ask > 0 ? (row.bid + row.ask) / 2 : null),
+    sortingFn: "basic",
+    cell: (info) => {
+      const v = info.getValue();
+      return v === null ? "–" : v.toFixed(2);
+    },
+  },
   { accessorKey: "volume", header: "Volume", sortingFn: "basic" },
   { accessorKey: "open_interest", header: "OI", sortingFn: "basic" },
   { accessorKey: "iv", header: "IV", sortingFn: "basic" },
