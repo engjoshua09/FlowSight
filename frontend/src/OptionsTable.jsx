@@ -21,7 +21,7 @@ const COLUMNS = [
   { accessorKey: "vega", header: "V Vega", sortingFn: "basic" },
 ];
 
-export default function OptionsTable({ contracts, spotPrice = 0 }) {
+export default function OptionsTable({ contracts, spotPrice = 0, onRowClick }) {
   const [sorting, setSorting] = useState([]);
 
   const table = useReactTable({
@@ -33,13 +33,17 @@ export default function OptionsTable({ contracts, spotPrice = 0 }) {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // Find the row closest to spot price to highlight as ATM
   const atmStrike = contracts.reduce((closest, c) => {
     return Math.abs(c.strike - spotPrice) < Math.abs(closest - spotPrice) ? c.strike : closest;
   }, contracts[0]?.strike ?? 0);
 
   return (
     <div style={{ overflowX: "auto" }}>
+      {onRowClick && (
+        <p style={{ color: "#a8a8b8", fontSize: "0.75rem", marginBottom: "0.5rem" }}>
+          Click a row to load it into the Greeks and P&L calculator.
+        </p>
+      )}
       <table
         style={{
           borderCollapse: "collapse",
@@ -82,9 +86,22 @@ export default function OptionsTable({ contracts, spotPrice = 0 }) {
             return (
               <tr
                 key={row.id}
+                onClick={() => onRowClick && onRowClick(row.original)}
                 style={{
                   background: isATM ? "#1a2a1a" : i % 2 === 0 ? "#111" : "#151515",
                   borderLeft: isATM ? "3px solid #00d4aa" : "3px solid transparent",
+                  cursor: onRowClick ? "pointer" : "default",
+                  transition: "background 0.1s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (onRowClick) e.currentTarget.style.background = "#1e1e2a";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = isATM
+                    ? "#1a2a1a"
+                    : i % 2 === 0
+                      ? "#111"
+                      : "#151515";
                 }}
               >
                 {row.getVisibleCells().map((cell) => {
