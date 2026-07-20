@@ -83,6 +83,7 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
             domain={xDomain}
             stroke="#666"
             tick={{ fill: "#888", fontSize: 11 }}
+            tickFormatter={(v) => `$${v.toFixed(2)}`}
           />
           <YAxis
             type="number"
@@ -96,8 +97,7 @@ export default function ExpectedMoveChart({ flaggedContracts, expectedMove, spot
             cursor={{ strokeDasharray: "3 3" }}
             contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: "0.8rem" }}
             formatter={(value, name) => {
-              if (name === "Notional")
-                return [`$${Number(value).toFixed(2).toLocaleString()}`, name];
+              if (name === "Notional") return [`$${Number(value).toLocaleString()}`, name];
               return [value, name];
             }}
           />
