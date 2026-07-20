@@ -91,7 +91,8 @@ export default function ExpectedMoveChart({
             name="Strike"
             domain={xDomain}
             stroke="#666"
-            tick={{ fill: "#a8a8b8", fontSize: 11 }}
+            tick={{ fill: "#888", fontSize: 11 }}
+            tickFormatter={(v) => `$${v.toFixed(2)}`}
           />
           <YAxis
             type="number"
