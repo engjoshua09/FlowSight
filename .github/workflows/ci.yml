@@ -5,6 +5,9 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 1 * * 1-5" # 9am SGT, weekdays only
+  workflow_dispatch: # allows manual trigger from GitHub UI
 
 jobs:
   lint-backend:
@@ -74,3 +77,15 @@ jobs:
           cd backend
           python -m pytest test_integration.py -v --tb=short
 
+  e2e:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install requests pytest
+      - name: Run E2E tests against deployed backend
+        run: pytest backend/test_e2e.py -v -m e2e --tb=short
