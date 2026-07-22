@@ -15,8 +15,8 @@ import pytest
 import requests
 
 BASE_URL = "https://flowsight-api-r6e9.onrender.com"
-TIMEOUT = 30  # Render free tier may be cold-starting
-
+TIMEOUT = 60  # was 30 — Render cold start can take up to 60s
+HEALTH_TIMEOUT = 90  # Even longer for health check
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,8 +36,12 @@ def get_options(ticker: str, **params) -> dict:
 
 @pytest.mark.e2e
 def test_health_endpoint_returns_ok():
-    """Backend is reachable and reports healthy."""
-    resp = requests.get(f"{BASE_URL}/health", timeout=TIMEOUT)
+    """
+    Backend is reachable and reports healthy.
+    Uses a longer timeout than other tests to account for Render
+    free-tier cold starts, which can take up to 60 seconds.
+    """
+    resp = requests.get(f"{BASE_URL}/health", timeout=HEALTH_TIMEOUT)
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"

@@ -17,3 +17,8 @@ ignore = [
     "E501",  # line too long — Black handles this
     "F401",  # unused imports — some are intentional re-exports
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: marks tests as end-to-end tests against the live deployed backend",
+]
