@@ -61,6 +61,32 @@ def get_spot_price(ticker: str) -> float:
         return 0.0
 
 
+def get_historical_volumes(ticker: str) -> list[float]:
+    """
+    Fetch 30 days of daily stock volume from yfinance.
+    Used as the baseline for UOA z-score calculation.
+    All contracts for the same ticker share this baseline —
+    fetched once per request, stored in cache.
+    Returns empty list on failure; score_contracts handles fallback.
+    """
+    try:
+        hist = yf.Ticker(ticker).history(period="30d")
+        if hist.empty:
+            logger.warning("yfinance returned empty history for %s", ticker)
+            return []
+        volumes = hist["Volume"].dropna().tolist()
+        logger.info(
+            "Fetched %d days of volume history for %s (mean: %.0f)",
+            len(volumes),
+            ticker,
+            sum(volumes) / len(volumes) if volumes else 0,
+        )
+        return volumes
+    except Exception as exc:
+        logger.warning("yfinance history failed for %s: %s", ticker, exc)
+        return []
+
+
 def dte_to_years(expiration_date: str) -> float:
     """Convert expiration date string to years-to-expiry for Black-Scholes."""
     try:
@@ -213,6 +239,7 @@ async def get_options(
         contracts_raw = cached["contracts"]
         spot = cached["spot_price"]
         expirations = cached.get("expirations", [])
+        historical_volumes = cached.get("historical_volumes", [])
     else:
         try:
             contracts_raw, expirations = await asyncio.to_thread(
@@ -222,6 +249,18 @@ async def get_options(
             raise HTTPException(status_code=502, detail=f"Tradier error: {exc}")
 
         spot = await asyncio.to_thread(get_spot_price, ticker)
+        historical_volumes = await asyncio.to_thread(get_historical_volumes, ticker)
+
+        # If yfinance returned 0 and market is closed, try snapshot for spot price
+        if spot == 0 and not market_open:
+            existing_snap = await cache_get(snap_key)
+            if existing_snap and existing_snap.get("spot_price", 0) > 0:
+                spot = existing_snap["spot_price"]
+                logger.info(
+                    "yfinance returned 0 after hours for %s — " "using snapshot spot price: %.2f",
+                    ticker,
+                    spot,
+                )
 
         if not contracts_raw:
             snapshot = await cache_get(snap_key)
@@ -240,6 +279,7 @@ async def get_options(
                     "contracts": contracts_raw,
                     "spot_price": spot,
                     "expirations": expirations,
+                    "historical_volumes": historical_volumes,
                 },
             )
             if market_open and len(contracts_raw) > 10:
@@ -249,12 +289,13 @@ async def get_options(
                         "contracts": contracts_raw,
                         "spot_price": spot,
                         "expirations": expirations,
+                        "historical_volumes": historical_volumes,
                     },
                     ttl=SNAPSHOT_TTL_SECONDS,
                 )
 
     enriched = enrich_with_greeks(contracts_raw, spot)
-    scored = score_contracts(enriched, spot, max_moneyness)
+    scored = score_contracts(enriched, spot, max_moneyness, historical_volumes)
     bias = compute_call_put_ratio(enriched)
 
     dte_for_move = compute_dte(contracts_raw[0]["expiration_date"]) if contracts_raw else 0
