@@ -294,7 +294,7 @@ async def get_options(
                 )
 
     enriched = enrich_with_greeks(contracts_raw, spot)
-    scored = score_contracts(enriched, spot, max_moneyness, historical_volumes)
+    scored = score_contracts(enriched, spot, max_moneyness)
     bias = compute_call_put_ratio(enriched)
 
     dte_for_move = compute_dte(contracts_raw[0]["expiration_date"]) if contracts_raw else 0

@@ -6,7 +6,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # Flagging thresholds
-MIN_VOLUME_OI_RATIO_DISPLAY = 10.0  # not used in scoring, only for display
+MIN_VOLUME_OI_RATIO_DISPLAY = 10.0
 MIN_UOA_SCORE = 3.0
 MIN_ZSCORE = 2.0
 MAX_DTE = 30
@@ -40,13 +40,10 @@ def compute_zscore(volume: float, population_volumes: list) -> float:
     """
     if len(population_volumes) < 5:
         return 0.0
-
     mean = float(np.mean(population_volumes))
     std = float(np.std(population_volumes))
-
     if std == 0:
         return 0.0
-
     return float((volume - mean) / std)
 
 
@@ -66,12 +63,10 @@ def compute_uoa_score(volume: float, open_interest: float, population_volumes: l
 def compute_call_put_ratio(contracts: list) -> dict:
     call_volume = sum(c.get("volume", 0) for c in contracts if c.get("option_type") == "call")
     put_volume = sum(c.get("volume", 0) for c in contracts if c.get("option_type") == "put")
-
     if put_volume == 0:
         ratio = None
     else:
         ratio = round(call_volume / put_volume, 4)
-
     return {
         "call_volume": call_volume,
         "put_volume": put_volume,
@@ -89,11 +84,13 @@ def score_contracts(
     spot: float = 0,
     max_moneyness: float = 0.30,
 ) -> list:
+    """
+    Score every contract by UOA signal strength using cross-sectional
+    z-scores against the full chain — not historical stock volume.
+    """
     scored = []
 
-    # Cross-sectional baseline: every contract's volume in today's chain.
-    # See compute_zscore docstring for why this replaces the historical
-    # stock-volume approach.
+    # Cross-sectional baseline: all contract volumes in today's chain
     population_volumes = [c.get("volume") or 0 for c in contracts]
 
     for c in contracts:
@@ -111,25 +108,16 @@ def score_contracts(
             if moneyness > max_moneyness:
                 continue
 
-        # Fixed: was previously nested inside the `if spot > 0 and strike > 0`
-        # block above, so dte was never assigned when spot was 0 (e.g. a
-        # yfinance failure) — that threw a NameError below and crashed the
-        # whole request. Now computed unconditionally for every contract.
         dte = compute_dte(expiration)
-
         uoa_score = compute_uoa_score(volume, open_interest, population_volumes)
         vol_oi_ratio = compute_volume_oi_ratio(volume, open_interest)
-        zscore = compute_zscore(volume, population_volumes)
+        zscore = compute_zscore(volume, population_volumes)  # ← now correctly assigned
 
         bid = c.get("bid") or 0
         ask = c.get("ask") or 0
         mid_price = (bid + ask) / 2 if bid > 0 and ask > 0 else 0
-        notional_value = round(volume * mid_price * 100, 2)  # 100 = contract multiplier
+        notional_value = round(volume * mid_price * 100, 2)
 
-        # A contract with no usable bid/ask has no real notional value behind
-        # it — it shouldn't be able to outrank genuinely large positions just
-        # because its Vol/OI ratio happens to look extreme. Requiring real
-        # dollar size before flagging keeps the signal meaningful.
         is_flagged = (
             uoa_score >= MIN_UOA_SCORE and dte <= MAX_DTE and volume > 0 and notional_value > 0
         )
