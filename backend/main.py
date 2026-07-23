@@ -13,9 +13,6 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 import yfinance as yf
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-
 from cache import (
     SNAPSHOT_TTL_SECONDS,
     _redis,
@@ -27,6 +24,8 @@ from cache import (
     options_chain_key,
     snapshot_key,
 )
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from greeks import compute_greeks
 from tradier import get_options_chain
 from uoa import compute_call_put_ratio, compute_dte, score_contracts
